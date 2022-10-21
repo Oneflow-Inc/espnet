@@ -38,6 +38,7 @@ gpu_inference=false  # Whether to perform gpu decoding.
 dumpdir=dump         # Directory to dump features.
 expdir=exp           # Directory to save experiments.
 python=python3       # Specify python to execute espnet commands.
+resume=true
 
 # Data preparation related
 local_data_opts= # The options given to local/data.sh.
@@ -49,6 +50,7 @@ speed_perturb_factors=  # perturbation factors, e.g. "0.9 1.0 1.1" (separated by
 feats_type=raw       # Feature type (raw or fbank_pitch).
 audio_format=flac    # Audio format: wav, flac, wav.ark, flac.ark  (only in feats_type=raw).
 fs=16k               # Sampling rate.
+use_flow_stft=false               # Sampling rate.
 min_wav_duration=0.1 # Minimum duration in second.
 max_wav_duration=20  # Maximum duration in second.
 
@@ -856,7 +858,7 @@ if ! "${skip_train}"; then
                 --ngpu "${ngpu}" \
                 --num_nodes "${num_nodes}" \
                 --init_file_prefix "${lm_exp}"/.dist_init_ \
-                --multiprocessing_distributed true -- \
+                --multiprocessing_distributed false -- \
                 ${python} -m espnet2.bin.lm_train \
                     --ngpu "${ngpu}" \
                     --use_preprocessor true \
@@ -869,7 +871,7 @@ if ! "${skip_train}"; then
                     --valid_data_path_and_name_and_type "${lm_dev_text},text,text" \
                     --valid_shape_file "${lm_stats_dir}/valid/text_shape.${lm_token_type}" \
                     --fold_length "${lm_fold_length}" \
-                    --resume true \
+                    --resume ${resume} \
                     --output_dir "${lm_exp}" \
                     ${_opts} ${lm_args}
 
@@ -934,7 +936,7 @@ if ! "${skip_train}"; then
                 # "sound" supports "wav", "flac", etc.
                 _type=sound
             fi
-            _opts+="--frontend_conf fs=${fs} "
+            _opts+="--frontend_conf fs=${fs} --frontend_conf use_flow_stft=${use_flow_stft}"
         else
             _scp=feats.scp
             _type=kaldi_ark
@@ -1036,7 +1038,7 @@ if ! "${skip_train}"; then
                 _type=sound
             fi
             _fold_length="$((asr_speech_fold_length * 100))"
-            _opts+="--frontend_conf fs=${fs} "
+            _opts+="--frontend_conf fs=${fs} --frontend_conf use_flow_stft=${use_flow_stft} "
         else
             _scp=feats.scp
             _type=kaldi_ark
@@ -1103,7 +1105,7 @@ if ! "${skip_train}"; then
             --ngpu "${ngpu}" \
             --num_nodes "${num_nodes}" \
             --init_file_prefix "${asr_exp}"/.dist_init_ \
-            --multiprocessing_distributed true -- \
+            --multiprocessing_distributed false -- \
             ${python} -m espnet2.bin.${asr_task}_train \
                 --use_preprocessor true \
                 --bpemodel "${bpemodel}" \
@@ -1116,7 +1118,7 @@ if ! "${skip_train}"; then
                 --valid_data_path_and_name_and_type "${_asr_valid_dir}/text,text,text" \
                 --valid_shape_file "${asr_stats_dir}/valid/speech_shape" \
                 --valid_shape_file "${asr_stats_dir}/valid/text_shape.${token_type}" \
-                --resume true \
+                --resume ${resume} \
                 --init_param ${pretrained_model} \
                 --ignore_init_mismatch ${ignore_init_mismatch} \
                 --fold_length "${_fold_length}" \

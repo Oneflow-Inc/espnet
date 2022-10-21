@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-import torch.optim.lr_scheduler as L
+import oneflow.optim.lr_scheduler as L
 
 
 class AbsScheduler(ABC):
@@ -75,9 +75,9 @@ for s in [
 ]:
     AbsEpochStepScheduler.register(s)
 
-AbsBatchStepScheduler.register(L.CyclicLR)
+AbsBatchStepScheduler.register(L.LinearLR)
 for s in [
-    L.OneCycleLR,
+    L.ConstantLR,
     L.CosineAnnealingWarmRestarts,
 ]:
     AbsBatchStepScheduler.register(s)

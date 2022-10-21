@@ -1,8 +1,8 @@
-import torch
+import oneflow as torch
 from typeguard import check_argument_types
 
 
-class SGD(torch.optim.SGD):
+class SGD(torch.optim.skippable.SGD):
     """Thin inheritance of torch.optim.SGD to bind the required arguments, 'lr'
 
     Note that

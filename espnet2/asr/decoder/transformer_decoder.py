@@ -4,7 +4,7 @@
 """Decoder definition."""
 from typing import Any, List, Sequence, Tuple
 
-import torch
+import oneflow as torch
 from typeguard import check_argument_types
 
 from espnet2.asr.decoder.abs_decoder import AbsDecoder
@@ -113,7 +113,7 @@ class BaseTransformerDecoder(AbsDecoder, BatchScorerInterface):
                 if use_output_layer is True,
             olens: (batch, )
         """
-        tgt = ys_in_pad
+        tgt = ys_in_pad.to(hs_pad.device)
         # tgt_mask: (B, 1, L)
         tgt_mask = (~make_pad_mask(ys_in_lens)[:, None, :]).to(tgt.device)
         # m: (1, L, L)

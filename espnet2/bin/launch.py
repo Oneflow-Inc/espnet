@@ -59,7 +59,7 @@ def get_parser():
     parser.add_argument(
         "--multiprocessing_distributed",
         type=str2bool,
-        default=True,
+        default=False,
         help="Distributed method is used when single-node mode.",
     )
     parser.add_argument(
@@ -241,7 +241,7 @@ EOF
                 # -> "DataParallel" mode, which is single-process
                 #    and Multi-GPUs with threading.
                 # See:
-                # https://discuss.pytorch.org/t/why-torch-nn-parallel-distributeddataparallel-runs-faster-than-torch-nn-dataparallel-on-single-machine-with-multi-gpu/32977/2
+                # https://discuss.pytorch.org/t/why-flow-nn-parallel-distributeddataparallel-runs-faster-than-flow-nn-dataparallel-on-single-machine-with-multi-gpu/32977/2
                 logging.info(f"single-node with {args.ngpu}gpu using DataParallel")
 
         # Using cmd as it is simply

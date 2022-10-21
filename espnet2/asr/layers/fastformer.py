@@ -8,7 +8,7 @@ Reference:
 """
 
 import numpy
-import torch
+import oneflow as torch
 
 
 class FastSelfAttention(torch.nn.Module):

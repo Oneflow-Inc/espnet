@@ -2,7 +2,7 @@
 
 from typing import Optional, Tuple, Union
 
-import torch
+import oneflow as torch
 
 
 class Conv1d(torch.nn.Module):

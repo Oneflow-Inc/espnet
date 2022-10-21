@@ -3,6 +3,7 @@ import argparse
 import dataclasses
 import logging
 import time
+import shutil
 from contextlib import contextmanager
 from dataclasses import is_dataclass
 from pathlib import Path
@@ -10,9 +11,9 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import humanfriendly
 import numpy as np
-import torch
-import torch.nn
-import torch.optim
+import oneflow as torch
+import oneflow.nn
+import oneflow.optim
 from packaging.version import parse as V
 from typeguard import check_argument_types
 
@@ -35,11 +36,11 @@ from espnet2.train.reporter import Reporter, SubReporter
 from espnet2.utils.build_dataclass import build_dataclass
 from espnet2.utils.kwargs2args import kwargs2args
 
-if torch.distributed.is_available():
-    from torch.distributed import ReduceOp
+if False and torch.distributed.is_available():
+    from oneflow.distributed import ReduceOp
 
 if V(torch.__version__) >= V("1.6.0"):
-    from torch.cuda.amp import GradScaler, autocast
+    from oneflow.cuda.amp import GradScaler, autocast
 else:
     # Nothing to do if torch<1.6.0
     @contextmanager
@@ -65,6 +66,8 @@ class TrainerOptions:
     grad_clip: float
     grad_clip_type: float
     log_interval: Optional[int]
+    stop_iter: Optional[int]
+    eval_stop_iter: Optional[int]
     no_forward_run: bool
     use_matplotlib: bool
     use_tensorboard: bool
@@ -244,10 +247,10 @@ class Trainer:
             # but for debuggability it's better to keep this block.
             dp_model = model
 
-        if trainer_options.use_tensorboard and (
+        if False and trainer_options.use_tensorboard and (
             not distributed_option.distributed or distributed_option.dist_rank == 0
         ):
-            from torch.utils.tensorboard import SummaryWriter
+            from oneflow.utils.tensorboard import SummaryWriter
 
             train_summary_writer = SummaryWriter(
                 str(output_dir / "tensorboard" / "train")
@@ -426,7 +429,7 @@ class Trainer:
                 for e in range(1, iepoch):
                     p = output_dir / f"{e}epoch.pth"
                     if p.exists() and e not in nbests:
-                        p.unlink()
+                        shutil.rmtree(p) 
                         _removed.append(str(p))
                 if len(_removed) != 0:
                     logging.info("The model files were removed: " + ", ".join(_removed))
@@ -458,7 +461,7 @@ class Trainer:
                 output_dir=output_dir,
                 best_model_criterion=trainer_options.best_model_criterion,
                 nbest=keep_nbest_models,
-            )
+                )
 
     @classmethod
     def train_one_epoch(
@@ -485,12 +488,17 @@ class Trainer:
         use_wandb = options.use_wandb
         create_graph_in_tensorboard = options.create_graph_in_tensorboard
         distributed = distributed_option.distributed
+        stop_iter = options.stop_iter
 
         if log_interval is None:
             try:
                 log_interval = max(len(iterator) // 20, 10)
             except TypeError:
                 log_interval = 100
+        
+        logging.info("log_interval: %d" % log_interval)
+        if stop_iter is not None:
+            logging.info("stop_iter: %d" % stop_iter)
 
         model.train()
         all_steps_are_invalid = True
@@ -502,8 +510,15 @@ class Trainer:
         for iiter, (utt_id, batch) in enumerate(
             reporter.measure_iter_time(iterator, "iter_time"), 1
         ):
+            torch._oneflow_internal.profiler.RangePush("prepare data done")
             assert isinstance(batch, dict), type(batch)
+            cpu_speech = batch["speech"]
+            cpu_speech_lengths = batch["speech_lengths"]
+            cpu_text = batch["text"]
+            cpu_text_lengths = batch["text_lengths"]
 
+            if stop_iter is not None and iiter == stop_iter:
+                break
             if distributed:
                 torch.distributed.all_reduce(iterator_stop, ReduceOp.SUM)
                 if iterator_stop > 0:
@@ -511,7 +526,14 @@ class Trainer:
 
             batch["utt_id"] = utt_id
 
-            batch = to_device(batch, "cuda" if ngpu > 0 else "cpu")
+            with torch.asyncs.thread(torch.asyncs.Thread()):
+                # batch = to_device(batch, "cuda" if ngpu > 0 else "cpu")
+                batch["cpu_speech"] = cpu_speech.detach()
+                batch["cpu_speech_lengths"] = cpu_speech_lengths.detach()
+                batch["cpu_text"] = cpu_text.detach()
+                batch["cpu_text_lengths"] = cpu_text_lengths.detach()
+                batch["device"] = "cuda" if ngpu > 0 else "cpu"
+
             if no_forward_run:
                 all_steps_are_invalid = False
                 continue
@@ -551,10 +573,12 @@ class Trainer:
                         )
                 del _model
 
+            torch._oneflow_internal.profiler.RangePop()
             with autocast(scaler is not None):
                 with reporter.measure_time("forward_time"):
                     retval = model(**batch)
 
+                    torch._oneflow_internal.profiler.RangePush("postProcess")
                     # Note(kamo):
                     # Supporting two patterns for the returned value from the model
                     #   a. dict type
@@ -606,9 +630,14 @@ class Trainer:
                     loss *= torch.distributed.get_world_size()
 
                 loss /= accum_grad
+                torch._oneflow_internal.profiler.RangePop()
 
-            reporter.register(stats, weight)
+            torch._oneflow_internal.profiler.RangePush("reporter.register")
+            with torch.asyncs.thread(torch.asyncs.Thread()):
+                reporter.register(stats, weight)
+            torch._oneflow_internal.profiler.RangePop()
 
+            torch._oneflow_internal.profiler.RangePush("loss.backward()")
             with reporter.measure_time("backward_time"):
                 if scaler is not None:
                     # Scales loss.  Calls backward() on scaled loss
@@ -619,6 +648,7 @@ class Trainer:
                     scaler.scale(loss).backward()
                 else:
                     loss.backward()
+            torch._oneflow_internal.profiler.RangePop()
 
             if iiter % accum_grad == 0:
                 if scaler is not None:
@@ -648,49 +678,40 @@ class Trainer:
                 if not isinstance(grad_norm, torch.Tensor):
                     grad_norm = torch.tensor(grad_norm)
 
-                if not torch.isfinite(grad_norm):
-                    logging.warning(
-                        f"The grad norm is {grad_norm}. Skipping updating the model."
-                    )
+                skip_if = ~torch.isfinite(grad_norm)
 
-                    # Must invoke scaler.update() if unscale_() is used in the iteration
-                    # to avoid the following error:
-                    #   RuntimeError: unscale_() has already been called
-                    #   on this optimizer since the last update().
-                    # Note that if the gradient has inf/nan values,
-                    # scaler.step skips optimizer.step().
-                    if scaler is not None:
-                        for iopt, optimizer in enumerate(optimizers):
-                            if optim_idx is not None and iopt != optim_idx:
-                                continue
+                torch._oneflow_internal.profiler.RangePush("optim_step_time")
+                torch._oneflow_internal.profiler.RangePush("cal all_steps_are_invalid")
+                all_steps_are_invalid = skip_if & all_steps_are_invalid
+                torch._oneflow_internal.profiler.RangePop()
+                with reporter.measure_time("optim_step_time"):
+                    for iopt, (optimizer, scheduler) in enumerate(
+                        zip(optimizers, schedulers)
+                    ):
+                        if optim_idx is not None and iopt != optim_idx:
+                            continue
+                        if scaler is not None:
+                            # scaler.step() first unscales the gradients of
+                            # the optimizer's assigned params.
                             scaler.step(optimizer)
+                            # Updates the scale for next iteration.
                             scaler.update()
+                        else:
+                            optimizer.step(skip_if)
+                        if isinstance(scheduler, AbsBatchStepScheduler):
+                            scheduler.step()
+                torch._oneflow_internal.profiler.RangePop()
 
-                else:
-                    all_steps_are_invalid = False
-                    with reporter.measure_time("optim_step_time"):
-                        for iopt, (optimizer, scheduler) in enumerate(
-                            zip(optimizers, schedulers)
-                        ):
-                            if optim_idx is not None and iopt != optim_idx:
-                                continue
-                            if scaler is not None:
-                                # scaler.step() first unscales the gradients of
-                                # the optimizer's assigned params.
-                                scaler.step(optimizer)
-                                # Updates the scale for next iteration.
-                                scaler.update()
-                            else:
-                                optimizer.step()
-                            if isinstance(scheduler, AbsBatchStepScheduler):
-                                scheduler.step()
+                torch._oneflow_internal.profiler.RangePush("optimizer.zero_grad()")
                 for iopt, optimizer in enumerate(optimizers):
                     if optim_idx is not None and iopt != optim_idx:
                         continue
                     optimizer.zero_grad()
+                torch._oneflow_internal.profiler.RangePop()
 
                 # Register lr and train/load time[sec/step],
                 # where step refers to accum_grad * mini-batch
+                torch._oneflow_internal.profiler.RangePush("Register lr and train/load")
                 reporter.register(
                     dict(
                         {
@@ -702,9 +723,11 @@ class Trainer:
                         train_time=time.perf_counter() - start_time,
                     ),
                 )
+                torch._oneflow_internal.profiler.RangePop()
                 start_time = time.perf_counter()
 
             # NOTE(kamo): Call log_message() after next()
+            torch._oneflow_internal.profiler.RangePush("reporter.next()")
             reporter.next()
             if iiter % log_interval == 0:
                 logging.info(reporter.log_message(-log_interval))
@@ -712,6 +735,7 @@ class Trainer:
                     reporter.tensorboard_add_scalar(summary_writer, -log_interval)
                 if use_wandb:
                     reporter.wandb_log()
+            torch._oneflow_internal.profiler.RangePop()
 
         else:
             if distributed:
@@ -733,22 +757,42 @@ class Trainer:
         ngpu = options.ngpu
         no_forward_run = options.no_forward_run
         distributed = distributed_option.distributed
+        log_interval = options.log_interval
+        eval_stop_iter = options.eval_stop_iter
+
+        logging.info("log_interval: %d" % log_interval)
+        if eval_stop_iter is not None:
+            logging.info("eval_stop_iter: %d" % eval_stop_iter)
 
         model.eval()
 
         # [For distributed] Because iteration counts are not always equals between
         # processes, send stop-flag to the other processes if iterator is finished
         iterator_stop = torch.tensor(0).to("cuda" if ngpu > 0 else "cpu")
-        for (utt_id, batch) in iterator:
+        for iiter, (utt_id, batch) in enumerate(iterator):
             assert isinstance(batch, dict), type(batch)
+            if eval_stop_iter is not None and iiter == eval_stop_iter:
+                break
             if distributed:
                 torch.distributed.all_reduce(iterator_stop, ReduceOp.SUM)
                 if iterator_stop > 0:
                     break
 
             batch["utt_id"] = utt_id
+            cpu_speech = batch["speech"]
+            cpu_speech_lengths = batch["speech_lengths"]
+            cpu_text = batch["text"]
+            cpu_text_lengths = batch["text_lengths"]
 
             batch = to_device(batch, "cuda" if ngpu > 0 else "cpu")
+
+            with torch.asyncs.thread(torch.asyncs.Thread()):
+                # batch = to_device(batch, "cuda" if ngpu > 0 else "cpu")
+                batch["cpu_speech"] = cpu_speech.detach()
+                batch["cpu_speech_lengths"] = cpu_speech_lengths.detach()
+                batch["cpu_text"] = cpu_text.detach()
+                batch["cpu_text_lengths"] = cpu_text_lengths.detach()
+                batch["device"] = "cuda" if ngpu > 0 else "cpu"
             if no_forward_run:
                 continue
 

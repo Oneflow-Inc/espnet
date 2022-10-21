@@ -15,7 +15,7 @@ import logging
 from typing import List, Optional, Tuple, Union
 
 import numpy
-import torch
+import oneflow as torch
 from typeguard import check_argument_types
 
 from espnet2.asr.encoder.abs_encoder import AbsEncoder

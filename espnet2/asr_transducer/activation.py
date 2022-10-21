@@ -1,6 +1,6 @@
 """Activation functions for Transducer."""
 
-import torch
+import oneflow as torch
 from packaging.version import parse as V
 
 

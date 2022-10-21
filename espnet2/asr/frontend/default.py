@@ -3,13 +3,14 @@ from typing import Optional, Tuple, Union
 
 import humanfriendly
 import numpy as np
-import torch
-from torch_complex.tensor import ComplexTensor
+import oneflow as torch
+from oneflow_complex.tensor import ComplexTensor
 from typeguard import check_argument_types
 
 from espnet2.asr.frontend.abs_frontend import AbsFrontend
 from espnet2.layers.log_mel import LogMel
 from espnet2.layers.stft import Stft
+from espnet2.layers.oneflow_stft import FlowStft
 from espnet2.utils.get_default_kwargs import get_default_kwargs
 from espnet.nets.pytorch_backend.frontends.frontend import Frontend
 
@@ -36,6 +37,7 @@ class DefaultFrontend(AbsFrontend):
         htk: bool = False,
         frontend_conf: Optional[dict] = get_default_kwargs(Frontend),
         apply_stft: bool = True,
+        use_flow_stft: bool = False,
     ):
         assert check_argument_types()
         super().__init__()
@@ -45,17 +47,29 @@ class DefaultFrontend(AbsFrontend):
         # Deepcopy (In general, dict shouldn't be used as default arg)
         frontend_conf = copy.deepcopy(frontend_conf)
         self.hop_length = hop_length
+        self.use_flow_stft = use_flow_stft
 
         if apply_stft:
-            self.stft = Stft(
-                n_fft=n_fft,
-                win_length=win_length,
-                hop_length=hop_length,
-                center=center,
-                window=window,
-                normalized=normalized,
-                onesided=onesided,
-            )
+            if self.use_flow_stft:
+                self.stft = FlowStft(
+                    n_fft=n_fft,
+                    win_length=win_length,
+                    hop_length=hop_length,
+                    center=center,
+                    window=window,
+                    normalized=normalized,
+                    onesided=onesided,
+                )
+            else:
+                self.stft = Stft(
+                    n_fft=n_fft,
+                    win_length=win_length,
+                    hop_length=hop_length,
+                    center=center,
+                    window=window,
+                    normalized=normalized,
+                    onesided=onesided,
+                )
         else:
             self.stft = None
         self.apply_stft = apply_stft
@@ -80,11 +94,12 @@ class DefaultFrontend(AbsFrontend):
         return self.n_mels
 
     def forward(
-        self, input: torch.Tensor, input_lengths: torch.Tensor
+        self, input: torch.Tensor, input_lengths: torch.Tensor,
+        cpu_input: torch.Tensor, cpu_input_lengths: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # 1. Domain-conversion: e.g. Stft: time -> time-freq
         if self.stft is not None:
-            input_stft, feats_lens = self._compute_stft(input, input_lengths)
+            input_stft, feats_lens = self._compute_stft(input, input_lengths, cpu_input, cpu_input_lengths)
         else:
             input_stft = ComplexTensor(input[..., 0], input[..., 1])
             feats_lens = input_lengths
@@ -117,9 +132,26 @@ class DefaultFrontend(AbsFrontend):
         return input_feats, feats_lens
 
     def _compute_stft(
-        self, input: torch.Tensor, input_lengths: torch.Tensor
+        self, input: torch.Tensor, input_lengths: torch.Tensor,
+        cpu_input: torch.Tensor, cpu_input_lengths: torch.Tensor
     ) -> torch.Tensor:
-        input_stft, feats_lens = self.stft(input, input_lengths)
+
+        if self.use_flow_stft:
+            input_stft, feats_lens = self.stft(input, input_lengths)
+        else:
+            if input.is_cuda:
+                device_str = "cuda"
+            else:
+                device_str = "cpu"
+            torch._oneflow_internal.profiler.RangePush("_compute_stft")
+            torch_input = torch.utils.tensor.to_torch(cpu_input).to(device_str)
+            torch_input_lengths = torch.utils.tensor.to_torch(cpu_input_lengths).to(device_str)
+            torch_input_stft, torch_feats_lens = self.stft(torch_input, torch_input_lengths)
+            input_stft = torch.utils.tensor.from_torch(torch_input_stft.cpu()).to(device_str)
+            feats_lens = torch.utils.tensor.from_torch(torch_feats_lens.cpu()).to(device_str)
+            torch._oneflow_internal.profiler.RangePop()
+
+        # input_stft, feats_lens = self.stft(input, input_lengths)
 
         assert input_stft.dim() >= 4, input_stft.shape
         # "2" refers to the real/imag parts of Complex

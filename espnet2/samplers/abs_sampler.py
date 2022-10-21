@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Iterator, Tuple
 
-from torch.utils.data import Sampler
+from oneflow.utils.data import Sampler
 
 
 class AbsSampler(Sampler, ABC):

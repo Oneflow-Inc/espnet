@@ -1,9 +1,9 @@
 from typing import List, Optional, Tuple, Union
 
 import numpy
-import torch
-import torch.nn as nn
-from torch_complex.tensor import ComplexTensor
+import oneflow as torch
+import oneflow.nn as nn
+from oneflow_complex.tensor import ComplexTensor
 
 from espnet.nets.pytorch_backend.frontends.dnn_beamformer import DNN_Beamformer
 from espnet.nets.pytorch_backend.frontends.dnn_wpe import DNN_WPE

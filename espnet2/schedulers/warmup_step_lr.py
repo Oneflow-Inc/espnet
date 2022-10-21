@@ -1,8 +1,8 @@
 """Step (with Warm up) learning rate scheduler module."""
 from typing import Union
 
-import torch
-from torch.optim.lr_scheduler import _LRScheduler
+import oneflow as torch
+from oneflow.optim.lr_scheduler import _LRScheduler
 from typeguard import check_argument_types
 
 from espnet2.schedulers.abs_scheduler import AbsBatchStepScheduler

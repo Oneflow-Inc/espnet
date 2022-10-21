@@ -1,6 +1,6 @@
 import humanfriendly
 import numpy as np
-import torch
+import oneflow as torch
 
 
 def get_human_readable_count(number: int) -> str:

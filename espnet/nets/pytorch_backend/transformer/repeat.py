@@ -6,7 +6,7 @@
 
 """Repeat the same layer definition."""
 
-import torch
+import oneflow as torch
 
 
 class MultiSequential(torch.nn.Sequential):
@@ -14,8 +14,8 @@ class MultiSequential(torch.nn.Sequential):
 
     def forward(self, *args):
         """Repeat."""
-        for m in self:
-            args = m(*args)
+        for module in self:
+            args = module(*args)
         return args
 
 

@@ -6,7 +6,7 @@
 
 """Layer modules for FFT block in FastSpeech (Feed-forward Transformer)."""
 
-import torch
+import oneflow as torch
 
 
 class MultiLayeredConv1d(torch.nn.Module):

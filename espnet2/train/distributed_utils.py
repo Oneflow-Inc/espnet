@@ -3,8 +3,8 @@ import os
 import socket
 from typing import Optional
 
-import torch
-import torch.distributed
+import oneflow as torch
+# import oneflow.distributed
 
 
 @dataclasses.dataclass
@@ -23,7 +23,7 @@ class DistributedOption:
     dist_master_addr: Optional[str] = None
     dist_master_port: Optional[int] = None
     dist_launcher: Optional[str] = None
-    multiprocessing_distributed: bool = True
+    multiprocessing_distributed: bool = False
 
     def init_options(self):
         if self.distributed:

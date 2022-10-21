@@ -6,7 +6,7 @@
 
 """Positionwise feed forward layer definition."""
 
-import torch
+import oneflow as torch
 
 
 class PositionwiseFeedForward(torch.nn.Module):

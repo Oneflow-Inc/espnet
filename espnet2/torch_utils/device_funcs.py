@@ -2,7 +2,7 @@ import dataclasses
 import warnings
 
 import numpy as np
-import torch
+import oneflow as torch
 
 
 def to_device(data, device=None, dtype=None, non_blocking=False, copy=False):
@@ -28,7 +28,7 @@ def to_device(data, device=None, dtype=None, non_blocking=False, copy=False):
     elif isinstance(data, np.ndarray):
         return to_device(torch.from_numpy(data), device, dtype, non_blocking, copy)
     elif isinstance(data, torch.Tensor):
-        return data.to(device, dtype, non_blocking, copy)
+        return data.to(device, dtype, copy)
     else:
         return data
 

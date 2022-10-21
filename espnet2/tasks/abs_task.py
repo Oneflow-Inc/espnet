@@ -11,13 +11,13 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import humanfriendly
 import numpy as np
-import torch
-import torch.multiprocessing
-import torch.nn
-import torch.optim
+import oneflow as torch
+import oneflow.multiprocessing
+import oneflow.nn
+import oneflow.optim
 import yaml
 from packaging.version import parse as V
-from torch.utils.data import DataLoader
+from oneflow.utils.data import DataLoader
 from typeguard import check_argument_types, check_return_type
 
 from espnet import __version__
@@ -70,22 +70,18 @@ except Exception:
     wandb = None
 
 if V(torch.__version__) >= V("1.5.0"):
-    from torch.multiprocessing.spawn import ProcessContext
+    from oneflow.multiprocessing.spawn import ProcessContext
 else:
-    from torch.multiprocessing.spawn import SpawnContext as ProcessContext
+    from oneflow.multiprocessing.spawn import SpawnContext as ProcessContext
 
 
 optim_classes = dict(
-    adam=torch.optim.Adam,
-    adamw=torch.optim.AdamW,
+    adam=torch.optim.skippable.Adam,
+    adamw=torch.optim.skippable.AdamW,
     sgd=SGD,
-    adadelta=torch.optim.Adadelta,
-    adagrad=torch.optim.Adagrad,
-    adamax=torch.optim.Adamax,
-    asgd=torch.optim.ASGD,
-    lbfgs=torch.optim.LBFGS,
-    rmsprop=torch.optim.RMSprop,
-    rprop=torch.optim.Rprop,
+    adadelta=torch.optim.skippable.Adadelta,
+    adagrad=torch.optim.skippable.Adagrad,
+    rmsprop=torch.optim.skippable.RMSprop,
 )
 if V(torch.__version__) >= V("1.10.0"):
     # From 1.10.0, RAdam is officially supported
@@ -103,8 +99,6 @@ try:
         lamb=torch_optimizer.Lamb,
         novograd=torch_optimizer.NovoGrad,
         pid=torch_optimizer.PID,
-        # torch_optimizer<=0.0.1a10 doesn't support
-        # qhadam=torch_optimizer.QHAdam,
         qhm=torch_optimizer.QHM,
         sgdw=torch_optimizer.SGDW,
         yogi=torch_optimizer.Yogi,
@@ -145,8 +139,8 @@ scheduler_classes = dict(
     noamlr=NoamLR,
     warmupsteplr=WarmupStepLR,
     warmuplr=WarmupLR,
-    cycliclr=torch.optim.lr_scheduler.CyclicLR,
-    onecyclelr=torch.optim.lr_scheduler.OneCycleLR,
+    # cycliclr=torch.optim.lr_scheduler.CyclicLR,
+    # onecyclelr=torch.optim.lr_scheduler.OneCycleLR,
     CosineAnnealingWarmRestarts=torch.optim.lr_scheduler.CosineAnnealingWarmRestarts,
 )
 # To lower keys
@@ -195,7 +189,7 @@ class AbsTask(ABC):
     ) -> Callable[[Sequence[Dict[str, np.ndarray]]], Dict[str, torch.Tensor]]:
         """Return "collate_fn", which is a callable object and given to DataLoader.
 
-        >>> from torch.utils.data import DataLoader
+        >>> from oneflow.utils.data import DataLoader
         >>> loader = DataLoader(collate_fn=cls.build_collate_fn(args, train=True), ...)
 
         In many cases, you can use our common collate_fn.
@@ -408,18 +402,18 @@ class AbsTask(ABC):
         )
 
         group = parser.add_argument_group("cudnn mode related")
-        group.add_argument(
-            "--cudnn_enabled",
-            type=str2bool,
-            default=torch.backends.cudnn.enabled,
-            help="Enable CUDNN",
-        )
-        group.add_argument(
-            "--cudnn_benchmark",
-            type=str2bool,
-            default=torch.backends.cudnn.benchmark,
-            help="Enable cudnn-benchmark mode",
-        )
+        # group.add_argument(
+        #     "--cudnn_enabled",
+        #     type=str2bool,
+        #     default=torch.backends.cudnn.enabled,
+        #     help="Enable CUDNN",
+        # )
+        # group.add_argument(
+        #     "--cudnn_benchmark",
+        #     type=str2bool,
+        #     default=torch.backends.cudnn.benchmark,
+        #     help="Enable cudnn-benchmark mode",
+        # )
         group.add_argument(
             "--cudnn_deterministic",
             type=str2bool,
@@ -560,6 +554,22 @@ class AbsTask(ABC):
             "of training samples automatically .",
         )
         group.add_argument(
+            "--stop_iter",
+            type=int_or_none,
+            default=None,
+            help="Max iter to run in each epochs at the "
+            "training phase. If None is given, it is decided according the number "
+            "of training samples automatically .",
+        )
+        group.add_argument(
+            "--eval_stop_iter",
+            type=int_or_none,
+            default=None,
+            help="Max iter to run in each epochs at the "
+            "training phase. If None is given, it is decided according the number "
+            "of training samples automatically .",
+        )
+        group.add_argument(
             "--use_matplotlib",
             type=str2bool,
             default=True,
@@ -568,7 +578,7 @@ class AbsTask(ABC):
         group.add_argument(
             "--use_tensorboard",
             type=str2bool,
-            default=True,
+            default=False,
             help="Enable tensorboard logging",
         )
         group.add_argument(
@@ -1110,9 +1120,7 @@ class AbsTask(ABC):
 
         # 1. Set random-seed
         set_all_random_seed(args.seed)
-        torch.backends.cudnn.enabled = args.cudnn_enabled
-        torch.backends.cudnn.benchmark = args.cudnn_benchmark
-        torch.backends.cudnn.deterministic = args.cudnn_deterministic
+
         if args.detect_anomaly:
             logging.info("Invoking torch.autograd.set_detect_anomaly(True)")
             torch.autograd.set_detect_anomaly(args.detect_anomaly)
@@ -1220,6 +1228,8 @@ class AbsTask(ABC):
                 output_dir=output_dir,
                 ngpu=args.ngpu,
                 log_interval=args.log_interval,
+                stop_iter=args.stop_iter,
+                eval_stop_iter=args.eval_stop_iter,
                 write_collected_feats=args.write_collected_feats,
             )
         else:

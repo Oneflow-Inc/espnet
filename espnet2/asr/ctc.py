@@ -1,5 +1,5 @@
-import torch
-import torch.nn.functional as F
+import oneflow as torch
+import oneflow.nn.functional as F
 from typeguard import check_argument_types
 
 
@@ -87,8 +87,8 @@ class CTC(torch.nn.Module):
         else:
             # ys_hat: (B, L, D) -> (L, B, D)
             ys_hat = ys_hat.transpose(0, 1)
-            # (B, L) -> (BxL,)
-            ys_true = torch.cat([ys_pad[i, :l] for i, l in enumerate(ys_lens)])
+            # (B, L)
+            ys_true = ys_pad
 
         loss = self.loss_fn(ys_hat, ys_true, hlens, ys_lens).to(
             device=hs_pad.device, dtype=hs_pad.dtype

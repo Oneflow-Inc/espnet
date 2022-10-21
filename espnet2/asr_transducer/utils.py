@@ -2,7 +2,7 @@
 
 from typing import List, Tuple
 
-import torch
+import oneflow as torch
 
 
 class TooShortUttError(Exception):

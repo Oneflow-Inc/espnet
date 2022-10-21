@@ -2,7 +2,7 @@ import logging
 from contextlib import contextmanager
 from typing import Dict, List, Optional, Tuple, Union
 
-import torch
+import oneflow as torch
 from packaging.version import parse as V
 from typeguard import check_argument_types
 
@@ -26,7 +26,7 @@ from espnet.nets.pytorch_backend.transformer.label_smoothing_loss import (  # no
 )
 
 if V(torch.__version__) >= V("1.6.0"):
-    from torch.cuda.amp import autocast
+    from oneflow.cuda.amp import autocast
 else:
     # Nothing to do if torch<1.6.0
     @contextmanager
@@ -157,6 +157,11 @@ class ESPnetASRModel(AbsESPnetModel):
         speech_lengths: torch.Tensor,
         text: torch.Tensor,
         text_lengths: torch.Tensor,
+        cpu_speech: torch.Tensor,
+        cpu_speech_lengths: torch.Tensor,
+        cpu_text: torch.Tensor,
+        cpu_text_lengths: torch.Tensor,
+        device: str,
         **kwargs,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
         """Frontend + Encoder + Decoder + Calc loss
@@ -168,6 +173,14 @@ class ESPnetASRModel(AbsESPnetModel):
             text_lengths: (Batch,)
             kwargs: "utt_id" is among the input.
         """
+        
+        
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+          speech = speech.to(device)
+          speech_lengths = speech_lengths.to(device)
+          text = text.to(device)
+          text_lengths = text_lengths.to(device)
+ 
         assert text_lengths.dim() == 1, text_lengths.shape
         # Check that batch_size is unified
         assert (
@@ -179,10 +192,20 @@ class ESPnetASRModel(AbsESPnetModel):
         batch_size = speech.shape[0]
 
         # for data-parallel
-        text = text[:, : text_lengths.max()]
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+            torch._oneflow_internal.profiler.RangePush("for data-parallel")
+            max_len = cpu_text_lengths.max()
+            cpu_text = cpu_text[:, : max_len]
+            text = text[:, : max_len]
+            torch._oneflow_internal.profiler.RangePop()
 
         # 1. Encoder
-        encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
+        torch._oneflow_internal.profiler.RangePush("espnet-Encoder")
+        encoder_out, encoder_out_lens = self.encode(speech, speech_lengths, cpu_speech, cpu_speech_lengths)
+        torch._oneflow_internal.profiler.RangePop()
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+            cpu_encoder_out = encoder_out.to("cpu")
+            cpu_encoder_out_lens = encoder_out_lens.to("cpu")
         intermediate_outs = None
         if isinstance(encoder_out, tuple):
             intermediate_outs = encoder_out[1]
@@ -228,6 +251,7 @@ class ESPnetASRModel(AbsESPnetModel):
             ) * loss_ctc + self.interctc_weight * loss_interctc
 
         if self.use_transducer_decoder:
+            torch._oneflow_internal.profiler.RangePush("use_transducer_decoder")
             # 2a. Transducer decoder branch
             (
                 loss_transducer,
@@ -250,12 +274,14 @@ class ESPnetASRModel(AbsESPnetModel):
             )
             stats["cer_transducer"] = cer_transducer
             stats["wer_transducer"] = wer_transducer
+            torch._oneflow_internal.profiler.RangePop()
 
         else:
+            torch._oneflow_internal.profiler.RangePush("Attention decoder branch")
             # 2b. Attention decoder branch
             if self.ctc_weight != 1.0:
                 loss_att, acc_att, cer_att, wer_att = self._calc_att_loss(
-                    encoder_out, encoder_out_lens, text, text_lengths
+                    encoder_out, cpu_encoder_out_lens, cpu_text, cpu_text_lengths
                 )
 
             # 3. CTC-Att loss definition
@@ -271,12 +297,23 @@ class ESPnetASRModel(AbsESPnetModel):
             stats["acc"] = acc_att
             stats["cer"] = cer_att
             stats["wer"] = wer_att
+            torch._oneflow_internal.profiler.RangePop()
 
         # Collect total loss stats
         stats["loss"] = loss.detach()
 
         # force_gatherable: to-device and to-tensor if scalar for DataParallel
+        torch._oneflow_internal.profiler.RangePush("force_gatherable")
         loss, stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
+        torch._oneflow_internal.profiler.RangePop()
+
+        torch._oneflow_internal.profiler.RangePush("espnet encoder_out.size(1) <= encoder_out_lens.max()")
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+            assert cpu_encoder_out.size(1) <= cpu_encoder_out_lens.max(), (
+                cpu_encoder_out.size(),
+                cpu_encoder_out_lens.max(),
+            )
+        torch._oneflow_internal.profiler.RangePop()
         return loss, stats, weight
 
     def collect_feats(
@@ -285,10 +322,14 @@ class ESPnetASRModel(AbsESPnetModel):
         speech_lengths: torch.Tensor,
         text: torch.Tensor,
         text_lengths: torch.Tensor,
+        cpu_speech: torch.Tensor,
+        cpu_speech_lengths: torch.Tensor,
+        cpu_text: torch.Tensor,
+        cpu_text_lengths: torch.Tensor,
         **kwargs,
     ) -> Dict[str, torch.Tensor]:
         if self.extract_feats_in_collect_stats:
-            feats, feats_lengths = self._extract_feats(speech, speech_lengths)
+            feats, feats_lengths = self._extract_feats(speech, speech_lengths, cpu_speech, cpu_speech_lengths)
         else:
             # Generate dummy stats if extract_feats_in_collect_stats is False
             logging.warning(
@@ -300,7 +341,8 @@ class ESPnetASRModel(AbsESPnetModel):
         return {"feats": feats, "feats_lengths": feats_lengths}
 
     def encode(
-        self, speech: torch.Tensor, speech_lengths: torch.Tensor
+        self, speech: torch.Tensor, speech_lengths: torch.Tensor,
+        cpu_speech: torch.Tensor, cpu_speech_lengths: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Frontend + Encoder. Note that this method is used by asr_inference.py
 
@@ -308,17 +350,20 @@ class ESPnetASRModel(AbsESPnetModel):
             speech: (Batch, Length, ...)
             speech_lengths: (Batch, )
         """
-        with autocast(False):
-            # 1. Extract feats
-            feats, feats_lengths = self._extract_feats(speech, speech_lengths)
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+            torch._oneflow_internal.profiler.RangePush("preprocess decode")
+            with autocast(False):
+                # 1. Extract feats
+                feats, feats_lengths = self._extract_feats(speech, speech_lengths, cpu_speech, cpu_speech_lengths)
 
-            # 2. Data augmentation
-            if self.specaug is not None and self.training:
-                feats, feats_lengths = self.specaug(feats, feats_lengths)
+                # 2. Data augmentation
+                if self.specaug is not None and self.training:
+                    feats, feats_lengths = self.specaug(feats, feats_lengths)
 
-            # 3. Normalization for feature: e.g. Global-CMVN, Utterance-CMVN
-            if self.normalize is not None:
-                feats, feats_lengths = self.normalize(feats, feats_lengths)
+                # 3. Normalization for feature: e.g. Global-CMVN, Utterance-CMVN
+                if self.normalize is not None:
+                    feats, feats_lengths = self.normalize(feats, feats_lengths)
+            torch._oneflow_internal.profiler.RangePop()
 
         # Pre-encoder, e.g. used for raw input data
         if self.preencoder is not None:
@@ -348,10 +393,6 @@ class ESPnetASRModel(AbsESPnetModel):
             encoder_out.size(),
             speech.size(0),
         )
-        assert encoder_out.size(1) <= encoder_out_lens.max(), (
-            encoder_out.size(),
-            encoder_out_lens.max(),
-        )
 
         if intermediate_outs is not None:
             return (encoder_out, intermediate_outs), encoder_out_lens
@@ -359,19 +400,24 @@ class ESPnetASRModel(AbsESPnetModel):
         return encoder_out, encoder_out_lens
 
     def _extract_feats(
-        self, speech: torch.Tensor, speech_lengths: torch.Tensor
+        self, speech: torch.Tensor, speech_lengths: torch.Tensor,
+        cpu_speech: torch.Tensor, cpu_speech_lengths: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         assert speech_lengths.dim() == 1, speech_lengths.shape
 
         # for data-parallel
-        speech = speech[:, : speech_lengths.max()]
+        torch._oneflow_internal.profiler.RangePush("cpu_speech_lengths.max()")
+        max_len = cpu_speech_lengths.max()
+        torch._oneflow_internal.profiler.RangePop()
+        cpu_speech = cpu_speech[:, : max_len]
+        speech = cpu_speech.to(speech.device)
 
         if self.frontend is not None:
             # Frontend
             #  e.g. STFT and Feature extract
             #       data_loader may send time-domain signal in this case
             # speech (Batch, NSamples) -> feats: (Batch, NFrames, Dim)
-            feats, feats_lengths = self.frontend(speech, speech_lengths)
+            feats, feats_lengths = self.frontend(speech, speech_lengths, cpu_speech, cpu_speech_lengths)
         else:
             # No frontend and no feature extract
             feats, feats_lengths = speech, speech_lengths
@@ -469,13 +515,18 @@ class ESPnetASRModel(AbsESPnetModel):
         ys_pad: torch.Tensor,
         ys_pad_lens: torch.Tensor,
     ):
-        ys_in_pad, ys_out_pad = add_sos_eos(ys_pad, self.sos, self.eos, self.ignore_id)
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+            ys_in_pad, ys_out_pad = add_sos_eos(ys_pad, self.sos, self.eos, self.ignore_id)
+        ys_in_pad = ys_in_pad.to(encoder_out.device)
+        ys_out_pad = ys_out_pad.to(encoder_out.device)
         ys_in_lens = ys_pad_lens + 1
 
         # 1. Forward decoder
+        torch._oneflow_internal.profiler.RangePush("self.decoder")
         decoder_out, _ = self.decoder(
             encoder_out, encoder_out_lens, ys_in_pad, ys_in_lens
         )
+        torch._oneflow_internal.profiler.RangePop()
 
         # 2. Compute attention loss
         loss_att = self.criterion_att(decoder_out, ys_out_pad)

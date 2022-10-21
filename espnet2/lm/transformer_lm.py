@@ -1,7 +1,7 @@
 from typing import Any, List, Tuple
 
-import torch
-import torch.nn as nn
+import oneflow as torch
+import oneflow.nn as nn
 
 from espnet2.lm.abs_model import AbsLM
 from espnet.nets.pytorch_backend.transformer.embedding import PositionalEncoding

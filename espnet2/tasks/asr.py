@@ -3,7 +3,7 @@ import logging
 from typing import Callable, Collection, Dict, List, Optional, Tuple
 
 import numpy as np
-import torch
+import oneflow as torch
 from typeguard import check_argument_types, check_return_type
 
 from espnet2.asr.ctc import CTC
@@ -413,6 +413,8 @@ class ASRTask(AbsTask):
         # 1. frontend
         if args.input_size is None:
             # Extract features in the model
+            logging.info(args.frontend)
+            logging.info(args.frontend_conf)
             frontend_class = frontend_choices.get_class(args.frontend)
             frontend = frontend_class(**args.frontend_conf)
             input_size = frontend.output_size()

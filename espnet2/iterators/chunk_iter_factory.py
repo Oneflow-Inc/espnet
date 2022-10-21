@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, Iterator, List, Sequence, Tuple, Union
 
 import numpy as np
-import torch
+import oneflow as torch
 from typeguard import check_argument_types
 
 from espnet2.iterators.abs_iter_factory import AbsIterFactory

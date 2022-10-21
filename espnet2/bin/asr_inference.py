@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-import torch
-import torch.quantization
+import oneflow as torch
+# import torch.quantization
 from typeguard import check_argument_types, check_return_type
 
 from espnet2.asr.transducer.beam_search_transducer import BeamSearchTransducer

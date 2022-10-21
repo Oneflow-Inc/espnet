@@ -5,7 +5,7 @@
 
 from typing import List, Optional, Tuple
 
-import torch
+import oneflow as torch
 from typeguard import check_argument_types
 
 from espnet2.asr.ctc import CTC

@@ -2,7 +2,7 @@
 
 from typing import Dict, Optional, Tuple
 
-import torch
+import oneflow as torch
 
 
 class ConformerConvolution(torch.nn.Module):

@@ -2,7 +2,7 @@
 
 from typing import List, Optional, Tuple
 
-import torch
+import oneflow as torch
 
 from espnet2.asr_transducer.beam_search_transducer import BeamSearchTransducer
 from espnet2.asr_transducer.decoder.abs_decoder import AbsDecoder

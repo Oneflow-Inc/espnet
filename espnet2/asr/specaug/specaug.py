@@ -1,6 +1,7 @@
 """SpecAugment module."""
 from typing import Optional, Sequence, Union
 
+import oneflow as torch
 from espnet2.asr.specaug.abs_specaug import AbsSpecAug
 from espnet2.layers.mask_along_axis import MaskAlongAxis, MaskAlongAxisVariableMaxWidth
 from espnet2.layers.time_warp import TimeWarp
@@ -88,7 +89,9 @@ class SpecAug(AbsSpecAug):
 
     def forward(self, x, x_lengths=None):
         if self.time_warp is not None:
+            torch._oneflow_internal.profiler.RangePush("time_warp")
             x, x_lengths = self.time_warp(x, x_lengths)
+            torch._oneflow_internal.profiler.RangePop()
         if self.freq_mask is not None:
             x, x_lengths = self.freq_mask(x, x_lengths)
         if self.time_mask is not None:

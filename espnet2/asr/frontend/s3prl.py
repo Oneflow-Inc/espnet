@@ -3,7 +3,7 @@ import logging
 from typing import Optional, Tuple, Union
 
 import humanfriendly
-import torch
+import oneflow as torch
 from typeguard import check_argument_types
 
 from espnet2.asr.frontend.abs_frontend import AbsFrontend

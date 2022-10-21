@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple
 
-import torch
+import oneflow as torch
 
 
 class AbsDecoder(torch.nn.Module, ABC):

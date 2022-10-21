@@ -3,7 +3,7 @@
 import math
 from typing import Optional, Tuple
 
-import torch
+import oneflow as torch
 
 
 class RelPositionMultiHeadedAttention(torch.nn.Module):

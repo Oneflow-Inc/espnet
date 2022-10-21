@@ -6,7 +6,7 @@ References:
 
 """
 
-import torch
+import oneflow as torch
 
 from espnet.nets.pytorch_backend.nets_utils import get_activation
 from espnet.nets.pytorch_backend.transformer.layer_norm import LayerNorm

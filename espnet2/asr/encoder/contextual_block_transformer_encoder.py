@@ -5,7 +5,7 @@
 import math
 from typing import Optional, Tuple
 
-import torch
+import oneflow as torch
 from typeguard import check_argument_types
 
 from espnet2.asr.encoder.abs_encoder import AbsEncoder

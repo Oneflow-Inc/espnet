@@ -1,4 +1,4 @@
-import torch
+import oneflow as torch
 
 
 def add_gradient_noise(

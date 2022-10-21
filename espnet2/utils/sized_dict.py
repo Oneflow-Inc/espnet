@@ -1,7 +1,7 @@
 import collections
 import sys
 
-from torch import multiprocessing
+from oneflow import multiprocessing
 
 
 def get_size(obj, seen=None):

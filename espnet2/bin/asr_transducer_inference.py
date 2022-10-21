@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-import torch
+import oneflow as torch
 from packaging.version import parse as V
 from typeguard import check_argument_types, check_return_type
 

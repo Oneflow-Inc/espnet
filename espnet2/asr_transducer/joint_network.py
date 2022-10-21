@@ -1,6 +1,6 @@
 """Transducer joint network implementation."""
 
-import torch
+import oneflow as torch
 
 from espnet2.asr_transducer.activation import get_activation
 

@@ -1,6 +1,6 @@
 import difflib
 
-import torch
+import oneflow as torch
 
 
 def get_layer(l_name, library=torch.nn):

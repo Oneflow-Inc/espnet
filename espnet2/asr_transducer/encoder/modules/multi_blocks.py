@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional
 
-import torch
+import oneflow as torch
 
 
 class MultiBlocks(torch.nn.Module):

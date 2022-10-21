@@ -8,8 +8,8 @@
 
 import math
 
-import torch
-from torch import nn
+import oneflow  as torch
+from oneflow import nn
 
 
 class MultiHeadedAttention(nn.Module):

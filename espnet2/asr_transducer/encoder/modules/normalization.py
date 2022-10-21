@@ -2,7 +2,7 @@
 
 from typing import Dict, Optional, Tuple
 
-import torch
+import oneflow as torch
 
 
 def get_normalization(

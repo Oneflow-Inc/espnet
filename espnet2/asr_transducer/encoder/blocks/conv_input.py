@@ -2,7 +2,7 @@
 
 from typing import Optional, Tuple, Union
 
-import torch
+import oneflow as torch
 
 from espnet2.asr_transducer.utils import sub_factor_to_params
 

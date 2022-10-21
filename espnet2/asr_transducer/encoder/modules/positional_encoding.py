@@ -2,7 +2,7 @@
 
 import math
 
-import torch
+import oneflow as torch
 
 from espnet.nets.pytorch_backend.transformer.embedding import _pre_hook
 

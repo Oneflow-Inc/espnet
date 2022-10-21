@@ -1,7 +1,6 @@
 from typing import Dict, Optional, Tuple
-
-import torch
-import torch.nn.functional as F
+import oneflow as torch
+import oneflow.nn.functional as F
 from typeguard import check_argument_types
 
 from espnet2.lm.abs_model import AbsLM

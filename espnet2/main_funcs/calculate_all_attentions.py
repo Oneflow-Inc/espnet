@@ -1,7 +1,7 @@
 from collections import defaultdict
 from typing import Dict, List
 
-import torch
+import oneflow as torch
 
 from espnet2.gan_tts.jets.alignments import AlignmentModule
 from espnet2.train.abs_espnet_model import AbsESPnetModel
@@ -163,6 +163,8 @@ def calculate_all_attentions(
 
     # 3. Remove all hooks
     for _, handle in handles.items():
+        if handle is None:
+            continue
         handle.remove()
 
     return dict(return_dict)

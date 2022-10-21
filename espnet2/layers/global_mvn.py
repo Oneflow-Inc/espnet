@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Tuple, Union
 
 import numpy as np
-import torch
+import oneflow as torch
 from typeguard import check_argument_types
 
 from espnet2.layers.abs_normalize import AbsNormalize

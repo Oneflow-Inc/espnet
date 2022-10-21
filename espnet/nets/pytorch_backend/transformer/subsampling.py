@@ -6,7 +6,7 @@
 
 """Subsampling layer definition."""
 
-import torch
+import oneflow as torch
 
 from espnet.nets.pytorch_backend.transformer.embedding import PositionalEncoding
 

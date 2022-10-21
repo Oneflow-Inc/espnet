@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
-import torch
-from torch.nn.parallel import data_parallel
-from torch.utils.data import DataLoader
+import oneflow as torch
+# from oneflow.nn.parallel import data_parallel
+from oneflow.utils.data import DataLoader
 from typeguard import check_argument_types
 
 from espnet2.fileio.datadir_writer import DatadirWriter
@@ -24,6 +24,7 @@ def collect_stats(
     output_dir: Path,
     ngpu: Optional[int],
     log_interval: Optional[int],
+    stop_iter: Optional[int],
     write_collected_feats: bool,
 ) -> None:
     """Perform on collect_stats mode.

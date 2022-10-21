@@ -6,7 +6,7 @@
 
 """Layer normalization module."""
 
-import torch
+import oneflow as torch
 
 
 class LayerNorm(torch.nn.LayerNorm):

@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Tuple
 
-import torch
+import oneflow as torch
 from typeguard import check_argument_types
 
 from espnet2.asr_transducer.encoder.building import (
