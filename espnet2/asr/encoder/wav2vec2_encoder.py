@@ -8,7 +8,7 @@ import logging
 import os
 from typing import Optional, Tuple
 
-import torch
+import oneflow as torch
 from filelock import FileLock
 from typeguard import check_argument_types
 

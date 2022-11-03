@@ -11,7 +11,7 @@ from typing import ContextManager, Dict, List, Optional, Sequence, Tuple, Union
 
 import humanfriendly
 import numpy as np
-import torch
+import oneflow as torch
 from packaging.version import parse as V
 from typeguard import check_argument_types, check_return_type
 
@@ -355,7 +355,7 @@ class Reporter:
                     torch.cuda.max_memory_reserved() / 2**30
                 )
         else:
-            if torch.cuda.is_available() and torch.cuda.max_memory_cached() > 0:
+            if False and torch.cuda.is_available() and torch.cuda.max_memory_cached() > 0:
                 stats["gpu_cached_mem_GB"] = torch.cuda.max_memory_cached() / 2**30
 
         self.stats.setdefault(self.epoch, {})[sub_reporter.key] = stats

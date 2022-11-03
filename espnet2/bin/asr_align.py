@@ -11,7 +11,7 @@ from typing import List, Optional, TextIO, Union
 
 import numpy as np
 import soundfile
-import torch
+import oneflow as torch
 
 # imports for CTC segmentation
 from ctc_segmentation import (

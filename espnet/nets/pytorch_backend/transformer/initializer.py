@@ -6,7 +6,7 @@
 
 """Parameter initialization."""
 
-import torch
+import oneflow
 
 from espnet.nets.pytorch_backend.transformer.layer_norm import LayerNorm
 

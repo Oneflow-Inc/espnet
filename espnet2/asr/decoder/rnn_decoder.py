@@ -1,8 +1,8 @@
 import random
 
 import numpy as np
-import torch
-import torch.nn.functional as F
+import oneflow as torch
+import oneflow.nn.functional as F
 from typeguard import check_argument_types
 
 from espnet2.asr.decoder.abs_decoder import AbsDecoder

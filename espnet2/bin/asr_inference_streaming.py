@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-import torch
+import oneflow as torch
 from typeguard import check_argument_types, check_return_type
 
 from espnet2.asr.encoder.contextual_block_conformer_encoder import (  # noqa: H301

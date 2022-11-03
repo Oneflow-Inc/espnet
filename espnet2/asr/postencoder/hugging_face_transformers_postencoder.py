@@ -8,7 +8,7 @@ import copy
 import logging
 from typing import Tuple
 
-import torch
+import oneflow as torch
 from typeguard import check_argument_types
 
 from espnet2.asr.postencoder.abs_postencoder import AbsPostEncoder

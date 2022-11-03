@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import librosa
-import torch
+import oneflow as torch
 
 from espnet.nets.pytorch_backend.nets_utils import make_pad_mask
 

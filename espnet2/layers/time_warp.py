@@ -1,5 +1,5 @@
 """Time warp module."""
-import torch
+import oneflow as torch
 
 from espnet.nets.pytorch_backend.nets_utils import pad_list
 
@@ -26,7 +26,7 @@ def time_warp(x: torch.Tensor, window: int = 80, mode: str = DEFAULT_TIME_WARP_M
         return x.view(*org_size)
 
     center = torch.randint(window, t - window, (1,))[0]
-    warped = torch.randint(center - window, center + window, (1,))[0] + 1
+    warped = torch.randint((center - window).item(), (center + window).item(), (1,))[0] + 1
 
     # left: (Batch, Channel, warped, Freq)
     # right: (Batch, Channel, time - warped, Freq)
@@ -34,7 +34,7 @@ def time_warp(x: torch.Tensor, window: int = 80, mode: str = DEFAULT_TIME_WARP_M
         x[:, :, :center], (warped, x.shape[3]), mode=mode, align_corners=False
     )
     right = torch.nn.functional.interpolate(
-        x[:, :, center:], (t - warped, x.shape[3]), mode=mode, align_corners=False
+        x[:, :, center:], ((t - warped), x.shape[3]), mode=mode, align_corners=False
     )
 
     if x.requires_grad:

@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import k2
 import numpy as np
-import torch
+import oneflow as torch
 import yaml
 from typeguard import check_argument_types, check_return_type
 

@@ -273,7 +273,7 @@ def pack(
     )
 
     try:
-        import torch
+        import oneflow as torch
 
         meta_objs.update(torch=str(torch.__version__))
     except ImportError:

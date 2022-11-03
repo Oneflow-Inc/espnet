@@ -3,7 +3,7 @@
 
 """Mask module."""
 
-import torch
+import oneflow as torch
 
 
 def subsequent_mask(size, device="cpu", dtype=torch.bool):
@@ -19,7 +19,7 @@ def subsequent_mask(size, device="cpu", dtype=torch.bool):
      [1, 1, 1]]
     """
     ret = torch.ones(size, size, device=device, dtype=dtype)
-    return torch.tril(ret, out=ret)
+    return torch.tril(ret)
 
 
 def target_mask(ys_in_pad, ignore_id):

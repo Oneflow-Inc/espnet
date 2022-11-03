@@ -1,8 +1,8 @@
 """Torch utility module."""
-import torch
+import oneflow as torch
 
-if torch.distributed.is_available():
-    from torch.distributed import ReduceOp
+if False and torch.distributed.is_available():
+    from oneflow.distributed import ReduceOp
 
 
 def recursive_sum(obj, weight: torch.Tensor, distributed: bool = False):

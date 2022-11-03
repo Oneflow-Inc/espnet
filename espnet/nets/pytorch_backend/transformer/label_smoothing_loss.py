@@ -6,8 +6,8 @@
 
 """Label smoothing module."""
 
-import torch
-from torch import nn
+import oneflow as torch
+from oneflow import nn
 
 
 class LabelSmoothingLoss(nn.Module):

@@ -3,7 +3,7 @@ import logging
 from typing import Callable, Collection, Dict, List, Optional, Tuple
 
 import numpy as np
-import torch
+import oneflow as torch
 from typeguard import check_argument_types, check_return_type
 
 from espnet2.lm.abs_model import AbsLM

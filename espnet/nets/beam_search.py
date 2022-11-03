@@ -4,7 +4,7 @@ import logging
 from itertools import chain
 from typing import Any, Dict, List, NamedTuple, Tuple, Union
 
-import torch
+import oneflow as torch
 
 from espnet.nets.e2e_asr_common import end_detect
 from espnet.nets.scorer_interface import PartialScorerInterface, ScorerInterface
@@ -140,7 +140,7 @@ class BeamSearch(torch.nn.Module):
             torch.Tensor: New tensor contains: xs + [x] with xs.dtype and xs.device
 
         """
-        x = torch.tensor([x], dtype=xs.dtype, device=xs.device)
+        x = torch.tensor([x.item()], dtype=xs.dtype, device=xs.device)
         return torch.cat((xs, x))
 
     def score_full(

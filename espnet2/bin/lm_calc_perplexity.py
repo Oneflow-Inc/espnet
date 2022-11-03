@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Optional, Sequence, Tuple, Union
 
 import numpy as np
-import torch
-from torch.nn.parallel import data_parallel
+import oneflow as torch
+# from torch.nn.parallel import data_parallel
 from typeguard import check_argument_types
 
 from espnet2.fileio.datadir_writer import DatadirWriter

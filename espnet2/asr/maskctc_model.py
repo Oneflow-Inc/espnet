@@ -4,7 +4,7 @@ from itertools import groupby
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy
-import torch
+import oneflow as torch
 from packaging.version import parse as V
 from typeguard import check_argument_types
 
@@ -27,12 +27,12 @@ from espnet.nets.pytorch_backend.transformer.label_smoothing_loss import (  # no
     LabelSmoothingLoss,
 )
 
-if V(torch.__version__) >= V("1.6.0"):
-    from torch.cuda.amp import autocast
+if V(torch.__version__) >= V("0.8.0"):
+    from oneflow.amp import autocast
 else:
     # Nothing to do if torch<1.6.0
     @contextmanager
-    def autocast(enabled=True):
+    def autocast(device_type="cuda", enabled=True):
         yield
 
 

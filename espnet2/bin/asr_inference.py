@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-import torch
-import torch.quantization
+import oneflow as torch
+# import torch.quantization
 from typeguard import check_argument_types, check_return_type
 
 from espnet2.asr.transducer.beam_search_transducer import BeamSearchTransducer
@@ -75,7 +75,7 @@ class Speech2Text:
         quantize_asr_model: bool = False,
         quantize_lm: bool = False,
         quantize_modules: List[str] = ["Linear"],
-        quantize_dtype: str = "qint8",
+        quantize_dtype: str = "int8",
     ):
         assert check_argument_types()
 
@@ -87,7 +87,7 @@ class Speech2Text:
             ):
                 raise ValueError(
                     "float16 dtype for dynamic quantization is not supported with "
-                    "torch version < 1.5.0. Switch to qint8 dtype instead."
+                    "torch version < 1.5.0. Switch to int8 dtype instead."
                 )
 
         quantize_modules = set([getattr(torch.nn, q) for q in quantize_modules])
@@ -279,10 +279,14 @@ class Speech2Text:
         speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
         # lengths: (1,)
         lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
+        cpu_speech = speech
+        cpu_speech_lengths = lengths
         batch = {"speech": speech, "speech_lengths": lengths}
 
         # a. To device
         batch = to_device(batch, device=self.device)
+        batch["cpu_speech"] = cpu_speech
+        batch["cpu_speech_lengths"] = cpu_speech_lengths
 
         # b. Forward Encoder
         enc, _ = self.asr_model.encode(**batch)
@@ -464,6 +468,7 @@ def inference(
     # FIXME(kamo): The output format should be discussed about
     with DatadirWriter(output_dir) as writer:
         for keys, batch in loader:
+            logging.info(keys)
             assert isinstance(batch, dict), type(batch)
             assert all(isinstance(s, str) for s in keys), keys
             _bs = len(next(iter(batch.values())))
@@ -615,8 +620,8 @@ def get_parser():
     group.add_argument(
         "--quantize_dtype",
         type=str,
-        default="qint8",
-        choices=["float16", "qint8"],
+        default="int8",
+        choices=["float16", "int8"],
         help="Dtype for dynamic quantization.",
     )
 

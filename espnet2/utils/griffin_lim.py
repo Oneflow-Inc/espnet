@@ -11,7 +11,7 @@ from typing import Optional
 
 import librosa
 import numpy as np
-import torch
+import oneflow as torch
 from packaging.version import parse as V
 from typeguard import check_argument_types
 

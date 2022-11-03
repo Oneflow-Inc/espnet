@@ -1,9 +1,9 @@
 """Lightweight Convolution Module."""
 
 import numpy
-import torch
-import torch.nn.functional as F
-from torch import nn
+import oneflow as torch
+import oneflow.nn.functional as F
+from oneflow import nn
 
 MIN_VALUE = float(numpy.finfo(numpy.float32).min)
 

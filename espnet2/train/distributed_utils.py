@@ -3,8 +3,8 @@ import os
 import socket
 from typing import Optional
 
-import torch
-import torch.distributed
+import oneflow as torch
+# import torch.distributed
 
 
 @dataclasses.dataclass

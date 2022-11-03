@@ -2,7 +2,7 @@ import logging
 from contextlib import contextmanager
 from typing import Dict, List, Optional, Tuple, Union
 
-import torch
+import oneflow as torch
 from packaging.version import parse as V
 from typeguard import check_argument_types
 
@@ -25,12 +25,12 @@ from espnet.nets.pytorch_backend.transformer.label_smoothing_loss import (  # no
     LabelSmoothingLoss,
 )
 
-if V(torch.__version__) >= V("1.6.0"):
-    from torch.cuda.amp import autocast
+if V(torch.__version__) >= V("0.8.0"):
+    from oneflow.amp import autocast
 else:
     # Nothing to do if torch<1.6.0
     @contextmanager
-    def autocast(enabled=True):
+    def autocast(device_type="cuda", dtype=torch.float16, enabled=True):
         yield
 
 
@@ -157,6 +157,11 @@ class ESPnetASRModel(AbsESPnetModel):
         speech_lengths: torch.Tensor,
         text: torch.Tensor,
         text_lengths: torch.Tensor,
+        cpu_speech: torch.Tensor,
+        cpu_speech_lengths: torch.Tensor,
+        cpu_text: torch.Tensor,
+        cpu_text_lengths: torch.Tensor,
+        device: str,
         **kwargs,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
         """Frontend + Encoder + Decoder + Calc loss
@@ -168,6 +173,11 @@ class ESPnetASRModel(AbsESPnetModel):
             text_lengths: (Batch,)
             kwargs: "utt_id" is among the input.
         """
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+            speech = speech.to(device)
+            speech_lengths = speech_lengths.to(device)
+            text = text.to(device)
+            text_lengths = text_lengths.to(device)
         assert text_lengths.dim() == 1, text_lengths.shape
         # Check that batch_size is unified
         assert (
@@ -179,10 +189,16 @@ class ESPnetASRModel(AbsESPnetModel):
         batch_size = speech.shape[0]
 
         # for data-parallel
-        text = text[:, : text_lengths.max()]
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+            max_len = cpu_text_lengths.max()
+            cpu_text = cpu_text[:, : max_len]
+            text = text[:, : max_len]
 
         # 1. Encoder
-        encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
+        encoder_out, encoder_out_lens = self.encode(speech, speech_lengths, cpu_speech, cpu_speech_lengths)
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+            cpu_encoder_out = encoder_out.to("cpu")
+            cpu_encoder_out_lens = encoder_out_lens.to("cpu")
         intermediate_outs = None
         if isinstance(encoder_out, tuple):
             intermediate_outs = encoder_out[1]
@@ -255,7 +271,7 @@ class ESPnetASRModel(AbsESPnetModel):
             # 2b. Attention decoder branch
             if self.ctc_weight != 1.0:
                 loss_att, acc_att, cer_att, wer_att = self._calc_att_loss(
-                    encoder_out, encoder_out_lens, text, text_lengths
+                    encoder_out, cpu_encoder_out_lens, cpu_text, cpu_text_lengths
                 )
 
             # 3. CTC-Att loss definition
@@ -277,6 +293,11 @@ class ESPnetASRModel(AbsESPnetModel):
 
         # force_gatherable: to-device and to-tensor if scalar for DataParallel
         loss, stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+            assert cpu_encoder_out.size(1) <= cpu_encoder_out_lens.max(), (
+                cpu_encoder_out.size(),
+                cpu_encoder_out_lens.max(),
+            )
         return loss, stats, weight
 
     def collect_feats(
@@ -288,7 +309,7 @@ class ESPnetASRModel(AbsESPnetModel):
         **kwargs,
     ) -> Dict[str, torch.Tensor]:
         if self.extract_feats_in_collect_stats:
-            feats, feats_lengths = self._extract_feats(speech, speech_lengths)
+            feats, feats_lengths = self._extract_feats(speech, speech_lengths, speech, speech_lengths)
         else:
             # Generate dummy stats if extract_feats_in_collect_stats is False
             logging.warning(
@@ -300,7 +321,8 @@ class ESPnetASRModel(AbsESPnetModel):
         return {"feats": feats, "feats_lengths": feats_lengths}
 
     def encode(
-        self, speech: torch.Tensor, speech_lengths: torch.Tensor
+        self, speech: torch.Tensor, speech_lengths: torch.Tensor,
+        cpu_speech: torch.Tensor, cpu_speech_lengths: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Frontend + Encoder. Note that this method is used by asr_inference.py
 
@@ -308,17 +330,18 @@ class ESPnetASRModel(AbsESPnetModel):
             speech: (Batch, Length, ...)
             speech_lengths: (Batch, )
         """
-        with autocast(False):
-            # 1. Extract feats
-            feats, feats_lengths = self._extract_feats(speech, speech_lengths)
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+            with autocast(device_type="cuda", enabled=False):
+                # 1. Extract feats
+                feats, feats_lengths = self._extract_feats(speech, speech_lengths, cpu_speech, cpu_speech_lengths)
 
-            # 2. Data augmentation
-            if self.specaug is not None and self.training:
-                feats, feats_lengths = self.specaug(feats, feats_lengths)
+                # 2. Data augmentation
+                if self.specaug is not None and self.training:
+                    feats, feats_lengths = self.specaug(feats, feats_lengths)
 
-            # 3. Normalization for feature: e.g. Global-CMVN, Utterance-CMVN
-            if self.normalize is not None:
-                feats, feats_lengths = self.normalize(feats, feats_lengths)
+                # 3. Normalization for feature: e.g. Global-CMVN, Utterance-CMVN
+                if self.normalize is not None:
+                    feats, feats_lengths = self.normalize(feats, feats_lengths)
 
         # Pre-encoder, e.g. used for raw input data
         if self.preencoder is not None:
@@ -348,10 +371,6 @@ class ESPnetASRModel(AbsESPnetModel):
             encoder_out.size(),
             speech.size(0),
         )
-        assert encoder_out.size(1) <= encoder_out_lens.max(), (
-            encoder_out.size(),
-            encoder_out_lens.max(),
-        )
 
         if intermediate_outs is not None:
             return (encoder_out, intermediate_outs), encoder_out_lens
@@ -359,19 +378,22 @@ class ESPnetASRModel(AbsESPnetModel):
         return encoder_out, encoder_out_lens
 
     def _extract_feats(
-        self, speech: torch.Tensor, speech_lengths: torch.Tensor
+        self, speech: torch.Tensor, speech_lengths: torch.Tensor,
+        cpu_speech: torch.Tensor, cpu_speech_lengths: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         assert speech_lengths.dim() == 1, speech_lengths.shape
 
         # for data-parallel
-        speech = speech[:, : speech_lengths.max()]
+        max_len = cpu_speech_lengths.max()
+        cpu_speech = cpu_speech[:, : max_len]
+        speech = cpu_speech.to(speech.device)
 
         if self.frontend is not None:
             # Frontend
             #  e.g. STFT and Feature extract
             #       data_loader may send time-domain signal in this case
             # speech (Batch, NSamples) -> feats: (Batch, NFrames, Dim)
-            feats, feats_lengths = self.frontend(speech, speech_lengths)
+            feats, feats_lengths = self.frontend(speech, speech_lengths, cpu_speech, cpu_speech_lengths)
         else:
             # No frontend and no feature extract
             feats, feats_lengths = speech, speech_lengths
@@ -469,7 +491,10 @@ class ESPnetASRModel(AbsESPnetModel):
         ys_pad: torch.Tensor,
         ys_pad_lens: torch.Tensor,
     ):
-        ys_in_pad, ys_out_pad = add_sos_eos(ys_pad, self.sos, self.eos, self.ignore_id)
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+            ys_in_pad, ys_out_pad = add_sos_eos(ys_pad, self.sos, self.eos, self.ignore_id)
+        ys_in_pad = ys_in_pad.to(encoder_out.device)
+        ys_out_pad = ys_out_pad.to(encoder_out.device)
         ys_in_lens = ys_pad_lens + 1
 
         # 1. Forward decoder

@@ -8,7 +8,7 @@
 
 import math
 
-import torch
+import oneflow as torch
 
 
 def _pre_hook(
@@ -53,7 +53,7 @@ class PositionalEncoding(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=dropout_rate)
         self.pe = None
         self.extend_pe(torch.tensor(0.0).expand(1, max_len))
-        self._register_load_state_dict_pre_hook(_pre_hook)
+        # self._register_load_state_dict_pre_hook(_pre_hook)
 
     def extend_pe(self, x):
         """Reset the positional encodings."""

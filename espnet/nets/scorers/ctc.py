@@ -1,7 +1,7 @@
 """ScorerInterface implementation for CTC."""
 
 import numpy as np
-import torch
+import oneflow as torch
 
 from espnet.nets.ctc_prefix_score import CTCPrefixScore, CTCPrefixScoreTH
 from espnet.nets.scorer_interface import BatchPartialScorerInterface

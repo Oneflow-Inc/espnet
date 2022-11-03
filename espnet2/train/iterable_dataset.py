@@ -7,8 +7,8 @@ from typing import Callable, Collection, Dict, Iterator, Tuple, Union
 import kaldiio
 import numpy as np
 import soundfile
-import torch
-from torch.utils.data.dataset import IterableDataset
+import oneflow as torch
+from oneflow.utils.data.dataset import IterableDataset
 from typeguard import check_argument_types
 
 from espnet2.train.dataset import ESPnetDataset

@@ -5,7 +5,7 @@
 
 import logging
 
-import torch
+import oneflow as torch
 
 from espnet.nets.pytorch_backend.nets_utils import rename_state_dict
 from espnet.nets.pytorch_backend.transducer.vgg2l import VGG2L

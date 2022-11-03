@@ -3,8 +3,8 @@
 import logging
 from typing import Any, Dict, List, NamedTuple, Tuple
 
-import torch
-from torch.nn.utils.rnn import pad_sequence
+import oneflow as torch
+from oneflow.nn.utils.rnn import pad_sequence
 
 from espnet.nets.beam_search import BeamSearch, Hypothesis
 
@@ -326,9 +326,17 @@ class BatchBeamSearch(BeamSearch):
                 ),
                 1,
             )
-            running_hyps.yseq.resize_as_(yseq_eos)
-            running_hyps.yseq[:] = yseq_eos
+            # running_hyps.yseq.resize_as_(yseq_eos)
+            # running_hyps.yseq[:] = yseq_eos
             running_hyps.length[:] = yseq_eos.shape[1]
+            running_hyps = BatchHypothesis(
+                yseq=yseq_eos,
+                score=running_hyps.score,
+                length=running_hyps.length,
+                scores=running_hyps.scores,
+                states=running_hyps.states,
+            )
+
 
         # add ended hypotheses to a final list, and removed them from current hypotheses
         # (this will be a probmlem, number of hyps < beam)

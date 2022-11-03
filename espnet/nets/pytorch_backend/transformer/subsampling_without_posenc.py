@@ -5,7 +5,7 @@
 
 import math
 
-import torch
+import oneflow as torch
 
 
 class Conv2dSubsamplingWOPosEnc(torch.nn.Module):

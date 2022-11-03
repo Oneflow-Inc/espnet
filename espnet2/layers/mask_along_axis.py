@@ -1,7 +1,7 @@
 import math
 from typing import Sequence, Union
 
-import torch
+import oneflow as torch
 from typeguard import check_argument_types
 
 
@@ -39,7 +39,7 @@ def mask_along_axis(
 
     # mask_pos: (B, num_mask, 1)
     mask_pos = torch.randint(
-        0, max(1, D - mask_length.max()), (B, num_mask), device=spec.device
+        0, max(1, D - mask_length.max()).item(), (B, num_mask), device=spec.device
     ).unsqueeze(2)
 
     # aran: (1, 1, D)

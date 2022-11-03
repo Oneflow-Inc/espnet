@@ -2,7 +2,7 @@
 
 from typing import List, Tuple, Union
 
-import torch
+import oneflow as torch
 
 from espnet.nets.beam_search_transducer import BeamSearchTransducer
 from espnet.nets.pytorch_backend.transducer.custom_decoder import CustomDecoder

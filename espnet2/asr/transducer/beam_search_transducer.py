@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import torch
+import oneflow as torch
 
 from espnet2.asr.decoder.abs_decoder import AbsDecoder
 from espnet2.asr.transducer.joint_network import JointNetwork

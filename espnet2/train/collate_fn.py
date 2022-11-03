@@ -1,7 +1,7 @@
 from typing import Collection, Dict, List, Tuple, Union
 
 import numpy as np
-import torch
+import oneflow as torch
 from typeguard import check_argument_types, check_return_type
 
 from espnet.nets.pytorch_backend.nets_utils import pad_list

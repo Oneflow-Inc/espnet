@@ -6,7 +6,7 @@
 
 import logging
 
-import torch
+import oneflow as torch
 
 from espnet.nets.pytorch_backend.conformer.convolution import ConvolutionModule
 from espnet.nets.pytorch_backend.conformer.encoder_layer import EncoderLayer

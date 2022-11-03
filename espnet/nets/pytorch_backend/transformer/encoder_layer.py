@@ -6,8 +6,8 @@
 
 """Encoder self-attention layer definition."""
 
-import torch
-from torch import nn
+import oneflow as torch
+from oneflow import nn
 
 from espnet.nets.pytorch_backend.transformer.layer_norm import LayerNorm
 

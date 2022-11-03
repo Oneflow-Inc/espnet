@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Tuple
 
-import torch
+import oneflow as torch
 
 
 class AbsESPnetModel(torch.nn.Module, ABC):

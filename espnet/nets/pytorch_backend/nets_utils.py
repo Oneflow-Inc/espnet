@@ -6,7 +6,7 @@ import logging
 from typing import Dict
 
 import numpy as np
-import torch
+import oneflow as torch
 
 
 def to_device(m, x):
@@ -53,7 +53,7 @@ def pad_list(xs, pad_value):
     """
     n_batch = len(xs)
     max_len = max(x.size(0) for x in xs)
-    pad = xs[0].new(n_batch, max_len, *xs[0].size()[1:]).fill_(pad_value)
+    pad = xs[0].new_empty(n_batch, max_len, *xs[0].size()[1:]).fill_(pad_value)
 
     for i in range(n_batch):
         pad[i, : xs[i].size(0)] = xs[i]
@@ -151,7 +151,8 @@ def make_pad_mask(lengths, xs=None, length_dim=-1, maxlen=None):
         raise ValueError("length_dim cannot be 0: {}".format(length_dim))
 
     if not isinstance(lengths, list):
-        lengths = lengths.long().tolist()
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+            lengths = lengths.long().tolist()
 
     bs = int(len(lengths))
     if maxlen is None:
@@ -165,11 +166,12 @@ def make_pad_mask(lengths, xs=None, length_dim=-1, maxlen=None):
 
     seq_range = torch.arange(0, maxlen, dtype=torch.int64)
     seq_range_expand = seq_range.unsqueeze(0).expand(bs, maxlen)
-    seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
+    seq_length_expand = seq_range_expand.new_tensor(lengths).unsqueeze(-1)
     mask = seq_range_expand >= seq_length_expand
 
     if xs is not None:
         assert xs.size(0) == bs, (xs.size(0), bs)
+        mask = mask.to(xs.device)
 
         if length_dim < 0:
             length_dim = xs.dim() + length_dim
@@ -295,7 +297,7 @@ def mask_by_length(xs, lengths, fill=0):
 
     """
     assert xs.size(0) == len(lengths)
-    ret = xs.data.new(*xs.size()).fill_(fill)
+    ret = xs.data.new_empty(*xs.size()).fill_(fill)
     for i, l in enumerate(lengths):
         ret[i, :l] = xs[i, :l]
     return ret

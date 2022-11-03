@@ -7,7 +7,7 @@
 """Longformer based Local Attention Definition."""
 
 from longformer.longformer import LongformerConfig, LongformerSelfAttention
-from torch import nn
+from oneflow import nn
 
 
 class LongformerAttention(nn.Module):

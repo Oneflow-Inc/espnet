@@ -59,7 +59,7 @@ def get_parser():
     parser.add_argument(
         "--multiprocessing_distributed",
         type=str2bool,
-        default=True,
+        default=False,
         help="Distributed method is used when single-node mode.",
     )
     parser.add_argument(

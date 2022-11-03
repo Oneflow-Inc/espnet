@@ -4,7 +4,7 @@
 """Masked LM Decoder definition."""
 from typing import Tuple
 
-import torch
+import oneflow as torch
 from typeguard import check_argument_types
 
 from espnet2.asr.decoder.abs_decoder import AbsDecoder
