@@ -82,7 +82,7 @@ class FlowStft(torch.nn.Module, InversibleInterface):
 
         # For the compatibility of ARM devices, which do not support
         # torch.stft() due to the lake of MKL.
-        if input.is_cuda or torch.backends.mkl.is_available():
+        if input.is_cuda:
             stft_kwargs = dict(
                 n_fft=self.n_fft,
                 win_length=self.win_length,

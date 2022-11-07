@@ -28,11 +28,14 @@ from espnet.nets.pytorch_backend.transformer.label_smoothing_loss import (  # no
 )
 
 if V(torch.__version__) >= V("0.8.0"):
-    from oneflow.amp import autocast
+    # from oneflow.amp import autocast
+    @contextmanager
+    def autocast(enabled=True):
+        yield
 else:
     # Nothing to do if torch<1.6.0
     @contextmanager
-    def autocast(device_type="cuda", enabled=True):
+    def autocast(enabled=True):
         yield
 
 

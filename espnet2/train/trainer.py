@@ -39,11 +39,16 @@ if False and torch.distributed.is_available():
     from oneflow.distributed import ReduceOp
 
 if V(torch.__version__) >= V("0.8.0"):
-    from oneflow.amp import GradScaler, autocast
+    # from oneflow.amp import GradScaler, autocast
+    @contextmanager
+    def autocast(enabled=True):
+        yield
+
+    GradScaler = None
 else:
     # Nothing to do if torch<1.6.0
     @contextmanager
-    def autocast(device_type="cuda", dtype=torch.float16, enabled=True):
+    def autocast(enabled=True):
         yield
 
     GradScaler = None
@@ -544,7 +549,7 @@ class Trainer:
                 all_steps_are_invalid = False
                 continue
 
-            with autocast(device_type=device, dtype=torch.float16, enabled=scaler is not None):
+            with autocast(scaler is not None):
                 with reporter.measure_time("forward_time"):
                     retval = model(**batch)
 

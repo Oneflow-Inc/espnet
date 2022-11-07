@@ -26,11 +26,14 @@ from espnet.nets.pytorch_backend.transformer.label_smoothing_loss import (  # no
 )
 
 if V(torch.__version__) >= V("0.8.0"):
-    from oneflow.amp import autocast
+    # from oneflow.amp import autocast
+    @contextmanager
+    def autocast(enabled=True):
+        yield
 else:
     # Nothing to do if torch<1.6.0
     @contextmanager
-    def autocast(device_type="cuda", dtype=torch.float16, enabled=True):
+    def autocast(enabled=True):
         yield
 
 
@@ -331,7 +334,7 @@ class ESPnetASRModel(AbsESPnetModel):
             speech_lengths: (Batch, )
         """
         with torch.asyncs.thread(torch.asyncs.Thread()):
-            with autocast(device_type="cuda", enabled=False):
+            with autocast(False):
                 # 1. Extract feats
                 feats, feats_lengths = self._extract_feats(speech, speech_lengths, cpu_speech, cpu_speech_lengths)
 
