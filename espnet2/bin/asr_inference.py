@@ -403,6 +403,8 @@ class Speech2Text:
         assert model_tag in model_tag2url, "Model tag is invalid, please chose one in (%s)" % ", ".join(model_tag2url.keys())
         if check_integrity(model_tag2url[model_tag][1], model_tag2url[model_tag][2]):
             print("Using downloaded and verified file: " + model_tag2url[model_tag][1])
+            if not os.path.exists(model_tag2url[model_tag][1].split(".")[0]):
+                os.system("unzip -q -o " + model_tag2url[model_tag][1])
         else:
             print("Downloading from " + model_tag2url[model_tag][0])
             os.system("wget " + model_tag2url[model_tag][0])
