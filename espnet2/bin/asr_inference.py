@@ -381,6 +381,7 @@ class Speech2Text:
     @staticmethod
     def from_pretrained_model(
         model_tag: str,
+        **kwargs: Optional[Any],
     ):
         """Build Speech2Text instance from the pretrained model.
 
@@ -409,6 +410,7 @@ class Speech2Text:
         return Speech2Text(
                               asr_train_config=model_tag2url[model_tag][1].split(".")[0]+"/config.yaml",
                               asr_model_file=model_tag2url[model_tag][1].split(".")[0]+"/valid.acc.ave.pth",
+                              **kwargs,
                           )
 
 
