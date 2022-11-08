@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import os
 import sys
+import hashlib
 from distutils.version import LooseVersion
 from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple, Union
@@ -35,6 +37,22 @@ from espnet.nets.scorers.ctc import CTCPrefixScorer
 from espnet.nets.scorers.length_bonus import LengthBonus
 from espnet.utils.cli_utils import get_commandline_args
 
+def calculate_md5(fpath: str, chunk_size: int = 1024 * 1024) -> str:
+    md5 = hashlib.md5()
+    with open(fpath, "rb") as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            md5.update(chunk)
+    return md5.hexdigest()
+
+def check_md5(fpath: str, md5: str, **kwargs: Any) -> bool:
+    return md5 == calculate_md5(fpath, **kwargs)
+
+def check_integrity(fpath: str, md5: Optional[str] = None) -> bool:
+    if not os.path.isfile(fpath):
+        return False
+    if md5 is None:
+        return True
+    return check_md5(fpath, md5)
 
 class Speech2Text:
     """Speech2Text class
@@ -359,6 +377,39 @@ class Speech2Text:
             kwargs.update(**d.download_and_unpack(model_tag))
 
         return Speech2Text(**kwargs)
+    
+    @staticmethod
+    def from_pretrained_model(
+        model_tag: str,
+    ):
+        """Build Speech2Text instance from the pretrained model.
+
+        Args:
+            model_tag (str): Model tag of the pretrained models.
+        Returns:
+            Speech2Text: Speech2Text instance.
+
+        """
+        # model_tag : (url, file_name, md5)
+        model_tag2url = {
+          "confermer_amp" : (
+                                "https://oneflow-public.oss-cn-beijing.aliyuncs.com/espnet_model/oneflow_conformer_amp_asr_model.zip",
+                                "oneflow_conformer_amp_asr_model.zip",
+                                "d168510afeebb89db5a86059e88a64f0"
+                            )
+        }
+
+        assert model_tag in model_tag2url, "Model tag is invalid, please chose one in (%s)" % ", ".join(model_tag2url.keys())
+        if check_integrity(model_tag2url[model_tag][1], model_tag2url[model_tag][2]):
+            print("Using downloaded and verified file: " + model_tag2url[model_tag][1])
+        else:
+            print("Downloading from " + model_tag2url[model_tag][0])
+            os.system("wget " + model_tag2url[model_tag][0])
+            os.system("unzip -q -o " + model_tag2url[model_tag][1])
+        return Speech2Text(
+                              asr_train_config=model_tag2url[model_tag][1].split(".")[0]+"/config.yaml",
+                              asr_model_file=model_tag2url[model_tag][1].split(".")[0]+"/valid.acc.ave.pth",
+                          )
 
 
 def inference(
