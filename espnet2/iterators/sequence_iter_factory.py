@@ -1,7 +1,7 @@
 from typing import Any, Sequence, Union
 
 import numpy as np
-from torch.utils.data import DataLoader
+from oneflow.utils.data import DataLoader
 from typeguard import check_argument_types
 
 from espnet2.iterators.abs_iter_factory import AbsIterFactory

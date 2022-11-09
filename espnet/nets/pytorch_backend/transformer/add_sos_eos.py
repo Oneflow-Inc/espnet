@@ -6,7 +6,7 @@
 
 """Unility functions for Transformer."""
 
-import torch
+import oneflow as torch
 
 
 def add_sos_eos(ys_pad, sos, eos, ignore_id):
@@ -23,8 +23,8 @@ def add_sos_eos(ys_pad, sos, eos, ignore_id):
     """
     from espnet.nets.pytorch_backend.nets_utils import pad_list
 
-    _sos = ys_pad.new([sos])
-    _eos = ys_pad.new([eos])
+    _sos = ys_pad.new_tensor([sos])
+    _eos = ys_pad.new_tensor([eos])
     ys = [y[y != ignore_id] for y in ys_pad]  # parse padded ys
     ys_in = [torch.cat([_sos, y], dim=0) for y in ys]
     ys_out = [torch.cat([y, _eos], dim=0) for y in ys]

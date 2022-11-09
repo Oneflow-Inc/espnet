@@ -1,7 +1,7 @@
 import logging
 
-import torch
-import torch.nn.functional as F
+import oneflow as torch
+import oneflow.nn.functional as F
 from typeguard import check_argument_types
 
 
@@ -58,7 +58,7 @@ class CTC(torch.nn.Module):
             th_pred = th_pred.log_softmax(2)
             loss = self.ctc_loss(th_pred, th_target, th_ilen, th_olen)
 
-            if loss.requires_grad and self.ignore_nan_grad:
+            if loss.requires_grad and self.ignore_nan_grad and False:
                 # ctc_grad: (L, B, O)
                 ctc_grad = loss.grad_fn(torch.ones_like(loss))
                 ctc_grad = ctc_grad.sum([0, 2])
@@ -147,8 +147,8 @@ class CTC(torch.nn.Module):
         else:
             # ys_hat: (B, L, D) -> (L, B, D)
             ys_hat = ys_hat.transpose(0, 1)
-            # (B, L) -> (BxL,)
-            ys_true = torch.cat([ys_pad[i, :l] for i, l in enumerate(ys_lens)])
+            # (B, L)
+            ys_true = ys_pad
 
         loss = self.loss_fn(ys_hat, ys_true, hlens, ys_lens).to(
             device=hs_pad.device, dtype=hs_pad.dtype

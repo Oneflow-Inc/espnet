@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Tuple
 
-import torch
+import oneflow as torch
 
 
 class AbsNormalize(torch.nn.Module, ABC):

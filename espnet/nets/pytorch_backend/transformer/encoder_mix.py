@@ -6,7 +6,7 @@
 
 """Encoder Mix definition."""
 
-import torch
+import oneflow
 
 from espnet.nets.pytorch_backend.transducer.vgg2l import VGG2L
 from espnet.nets.pytorch_backend.transformer.attention import MultiHeadedAttention

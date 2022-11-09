@@ -1,8 +1,8 @@
 """Sequential implementation of Recurrent Neural Network Language Model."""
 from typing import Tuple, Union
 
-import torch
-import torch.nn as nn
+import oneflow as torch
+import oneflow.nn as nn
 from typeguard import check_argument_types
 
 from espnet2.lm.abs_model import AbsLM

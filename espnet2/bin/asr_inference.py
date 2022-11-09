@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import os
 import sys
+import hashlib
 from distutils.version import LooseVersion
 from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-import torch
-import torch.quantization
+import oneflow as torch
+# import torch.quantization
 from typeguard import check_argument_types, check_return_type
 
 from espnet2.asr.transducer.beam_search_transducer import BeamSearchTransducer
@@ -35,6 +37,22 @@ from espnet.nets.scorers.ctc import CTCPrefixScorer
 from espnet.nets.scorers.length_bonus import LengthBonus
 from espnet.utils.cli_utils import get_commandline_args
 
+def calculate_md5(fpath: str, chunk_size: int = 1024 * 1024) -> str:
+    md5 = hashlib.md5()
+    with open(fpath, "rb") as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            md5.update(chunk)
+    return md5.hexdigest()
+
+def check_md5(fpath: str, md5: str, **kwargs: Any) -> bool:
+    return md5 == calculate_md5(fpath, **kwargs)
+
+def check_integrity(fpath: str, md5: Optional[str] = None) -> bool:
+    if not os.path.isfile(fpath):
+        return False
+    if md5 is None:
+        return True
+    return check_md5(fpath, md5)
 
 class Speech2Text:
     """Speech2Text class
@@ -75,7 +93,7 @@ class Speech2Text:
         quantize_asr_model: bool = False,
         quantize_lm: bool = False,
         quantize_modules: List[str] = ["Linear"],
-        quantize_dtype: str = "qint8",
+        quantize_dtype: str = "int8",
     ):
         assert check_argument_types()
 
@@ -87,7 +105,7 @@ class Speech2Text:
             ):
                 raise ValueError(
                     "float16 dtype for dynamic quantization is not supported with "
-                    "torch version < 1.5.0. Switch to qint8 dtype instead."
+                    "torch version < 1.5.0. Switch to int8 dtype instead."
                 )
 
         quantize_modules = set([getattr(torch.nn, q) for q in quantize_modules])
@@ -279,10 +297,14 @@ class Speech2Text:
         speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
         # lengths: (1,)
         lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
+        cpu_speech = speech
+        cpu_speech_lengths = lengths
         batch = {"speech": speech, "speech_lengths": lengths}
 
         # a. To device
         batch = to_device(batch, device=self.device)
+        batch["cpu_speech"] = cpu_speech
+        batch["cpu_speech_lengths"] = cpu_speech_lengths
 
         # b. Forward Encoder
         enc, _ = self.asr_model.encode(**batch)
@@ -355,6 +377,43 @@ class Speech2Text:
             kwargs.update(**d.download_and_unpack(model_tag))
 
         return Speech2Text(**kwargs)
+    
+    @staticmethod
+    def from_pretrained_model(
+        model_tag: str,
+        **kwargs: Optional[Any],
+    ):
+        """Build Speech2Text instance from the pretrained model.
+
+        Args:
+            model_tag (str): Model tag of the pretrained models.
+        Returns:
+            Speech2Text: Speech2Text instance.
+
+        """
+        # model_tag : (url, file_name, md5)
+        model_tag2url = {
+          "confermer_amp" : (
+                                "https://oneflow-public.oss-cn-beijing.aliyuncs.com/espnet_model/oneflow_conformer_amp_asr_model.zip",
+                                "oneflow_conformer_amp_asr_model.zip",
+                                "d168510afeebb89db5a86059e88a64f0"
+                            )
+        }
+
+        assert model_tag in model_tag2url, "Model tag is invalid, please chose one in (%s)" % ", ".join(model_tag2url.keys())
+        if check_integrity(model_tag2url[model_tag][1], model_tag2url[model_tag][2]):
+            print("Using downloaded and verified file: " + model_tag2url[model_tag][1])
+            if not os.path.exists(model_tag2url[model_tag][1].split(".")[0]):
+                os.system("unzip -q -o " + model_tag2url[model_tag][1])
+        else:
+            print("Downloading from " + model_tag2url[model_tag][0])
+            os.system("wget " + model_tag2url[model_tag][0])
+            os.system("unzip -q -o " + model_tag2url[model_tag][1])
+        return Speech2Text(
+                              asr_train_config=model_tag2url[model_tag][1].split(".")[0]+"/config.yaml",
+                              asr_model_file=model_tag2url[model_tag][1].split(".")[0]+"/valid.acc.ave.pth",
+                              **kwargs,
+                          )
 
 
 def inference(
@@ -464,6 +523,7 @@ def inference(
     # FIXME(kamo): The output format should be discussed about
     with DatadirWriter(output_dir) as writer:
         for keys, batch in loader:
+            logging.info(keys)
             assert isinstance(batch, dict), type(batch)
             assert all(isinstance(s, str) for s in keys), keys
             _bs = len(next(iter(batch.values())))
@@ -615,8 +675,8 @@ def get_parser():
     group.add_argument(
         "--quantize_dtype",
         type=str,
-        default="qint8",
-        choices=["float16", "qint8"],
+        default="int8",
+        choices=["float16", "int8"],
         help="Dtype for dynamic quantization.",
     )
 

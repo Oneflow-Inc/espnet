@@ -9,7 +9,7 @@
 import logging
 from typing import Any, List, Tuple
 
-import torch
+import oneflow as flow
 
 from espnet.nets.pytorch_backend.nets_utils import rename_state_dict
 from espnet.nets.pytorch_backend.transformer.attention import MultiHeadedAttention

@@ -7,7 +7,7 @@
 
 """Swish() activation function for Conformer."""
 
-import torch
+import oneflow as torch
 
 
 class Swish(torch.nn.Module):

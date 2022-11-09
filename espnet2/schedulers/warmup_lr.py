@@ -1,8 +1,8 @@
 """Warm up learning rate scheduler module."""
 from typing import Union
 
-import torch
-from torch.optim.lr_scheduler import _LRScheduler
+import oneflow as torch
+from oneflow.optim.lr_scheduler import _LRScheduler
 from typeguard import check_argument_types
 
 from espnet2.schedulers.abs_scheduler import AbsBatchStepScheduler
@@ -40,11 +40,6 @@ class WarmupLR(_LRScheduler, AbsBatchStepScheduler):
     def __repr__(self):
         return f"{self.__class__.__name__}(warmup_steps={self.warmup_steps})"
 
-    def get_lr(self):
-        step_num = self.last_epoch + 1
-        return [
-            lr
-            * self.warmup_steps**0.5
-            * min(step_num**-0.5, step_num * self.warmup_steps**-1.5)
-            for lr in self.base_lrs
-        ]
+    def get_lr(self, base_lr, step):
+        step_num = step + 1
+        return base_lr * self.warmup_steps**0.5 * min(step_num**-0.5, step_num * self.warmup_steps**-1.5)

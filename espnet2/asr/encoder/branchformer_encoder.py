@@ -17,7 +17,7 @@ from typing import List
 
 import logging
 import numpy
-import torch
+import oneflow as torch
 
 from typeguard import check_argument_types
 

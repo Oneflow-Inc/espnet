@@ -7,7 +7,7 @@
 
 """ConvolutionModule definition."""
 
-from torch import nn
+from oneflow import nn
 
 
 class ConvolutionModule(nn.Module):

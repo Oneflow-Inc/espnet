@@ -1,7 +1,7 @@
 from collections import defaultdict
 from typing import Dict, List
 
-import torch
+import oneflow as torch
 
 from espnet2.train.abs_espnet_model import AbsESPnetModel
 from espnet.nets.pytorch_backend.rnn.attentions import (
@@ -131,6 +131,26 @@ def calculate_all_attentions(
         if "utt_id" in batch:
             _sample["utt_id"] = batch["utt_id"]
 
+        if "speech" in _sample:
+            cpu_speech = _sample["speech"].cpu()
+        if "speech_lengths" in _sample:
+            cpu_speech_lengths = _sample["speech_lengths"].cpu()
+        if "text" in _sample:
+            cpu_text = _sample["text"].cpu()
+        if "text_lengths" in _sample:
+            cpu_text_lengths = _sample["text_lengths"].cpu()
+
+        with torch.asyncs.thread(torch.asyncs.Thread()):
+            if "speech" in _sample:
+                _sample["cpu_speech"] = cpu_speech.detach()
+            if "speech_lengths" in _sample:
+                _sample["cpu_speech_lengths"] = cpu_speech_lengths.detach()
+            if "text" in _sample:
+                _sample["cpu_text"] = cpu_text.detach()
+            if "text_lengths" in _sample:
+                _sample["cpu_text_lengths"] = cpu_text_lengths.detach()
+            _sample["device"] = "cuda" if _sample["speech"].is_cuda else "cpu"
+        
         model(**_sample)
 
         # Derive the attention results
@@ -158,6 +178,8 @@ def calculate_all_attentions(
 
     # 3. Remove all hooks
     for _, handle in handles.items():
+        if handle is None:
+            continue
         handle.remove()
 
     return dict(return_dict)

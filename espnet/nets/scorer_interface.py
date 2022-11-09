@@ -3,7 +3,7 @@
 import warnings
 from typing import Any, List, Tuple
 
-import torch
+import oneflow as torch
 
 
 class ScorerInterface:

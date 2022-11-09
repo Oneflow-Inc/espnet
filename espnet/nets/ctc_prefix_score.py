@@ -5,7 +5,7 @@
 
 import numpy as np
 import six
-import torch
+import oneflow as torch
 
 
 class CTCPrefixScoreTH(object):
@@ -135,7 +135,7 @@ class CTCPrefixScoreTH(object):
             for idx in range(n_bh):
                 pos = scoring_idmap[idx, last_ids[idx]]
                 if pos >= 0:
-                    log_phi[:, idx, pos] = r_prev[:, 1, idx]
+                    log_phi[:, idx, pos.item()] = r_prev[:, 1, idx]
         else:
             for idx in range(n_bh):
                 log_phi[:, idx, last_ids[idx]] = r_prev[:, 1, idx]

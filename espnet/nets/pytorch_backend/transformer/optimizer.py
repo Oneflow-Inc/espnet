@@ -6,7 +6,7 @@
 
 """Optimizer module."""
 
-import torch
+import oneflow as torch
 
 
 class NoamOpt(object):

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
-import torch
+import oneflow as torch
 
 
 class AbsEncoder(torch.nn.Module, ABC):

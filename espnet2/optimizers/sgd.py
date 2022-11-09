@@ -1,4 +1,4 @@
-import torch
+import oneflow as torch
 from typeguard import check_argument_types
 
 

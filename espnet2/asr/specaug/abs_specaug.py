@@ -1,6 +1,6 @@
 from typing import Optional, Tuple
 
-import torch
+import oneflow as torch
 
 
 class AbsSpecAug(torch.nn.Module):

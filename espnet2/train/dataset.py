@@ -11,7 +11,7 @@ import h5py
 import humanfriendly
 import kaldiio
 import numpy as np
-import torch
+import oneflow as torch
 from torch.utils.data.dataset import Dataset
 from typeguard import check_argument_types, check_return_type
 

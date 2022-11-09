@@ -5,8 +5,8 @@ Created on Sat Aug 21 16:57:31 2021.
 @author: Keqi Deng (UCAS)
 """
 
-import torch
-from torch import nn
+import oneflow as flow
+from oneflow import nn
 
 from espnet.nets.pytorch_backend.transformer.layer_norm import LayerNorm
 

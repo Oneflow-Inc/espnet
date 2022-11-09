@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 from typing import Optional, Tuple
 
-import torch
+import oneflow as torch
 import yaml
 from filelock import FileLock
 from typeguard import check_argument_types
